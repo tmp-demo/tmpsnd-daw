@@ -1,0 +1,14 @@
+<script>
+var params = {
+  "kick": {
+    "release": 0.3
+  }
+};
+var ws = new WebSocket("ws://localhost:7681", "tmpsnd");
+ws.onopen = function(e) {
+  ws.send(JSON.stringify(params));
+}
+ws.onmessage = function(e) {
+  console.log("received:" +e.data);
+}
+</script>
