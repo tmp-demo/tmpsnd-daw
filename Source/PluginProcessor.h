@@ -5,6 +5,7 @@
 #include "libwebsockets.h"
 
 class TmpSndDawAudioProcessor;
+class TmpSndDawAudioProcessorEditor;
 
 const size_t MAX_PAYLOAD = 65536;
 
@@ -95,6 +96,7 @@ public:
 
     bool deserializeParams(const void* aData, size_t aSize);
     void onReceivedData(const void* aData, size_t aSize);
+    Array<Parameter*, CriticalSection>* GetParametersArray();
 
 private:
     WebSocketServer* mWebSocket;
@@ -107,7 +109,9 @@ private:
       PROCESSING
     };
     State mState;
-    Array<Parameter, CriticalSection> mParameters;
+    Array<Parameter*, CriticalSection> mParameters;
+    TmpSndDawAudioProcessorEditor* mEditor;
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessor)
 };

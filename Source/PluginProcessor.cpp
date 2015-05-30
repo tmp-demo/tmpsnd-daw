@@ -177,7 +177,8 @@ void WebSocketServer::run()
 
 TmpSndDawAudioProcessor::TmpSndDawAudioProcessor()
 : mWebSocket(new WebSocketServer(this)),
-  mState(WAITING_FOR_PARAMS)
+  mState(WAITING_FOR_PARAMS),
+  mEditor(nullptr)
 {
 }
 
@@ -193,26 +194,27 @@ const String TmpSndDawAudioProcessor::getName() const
 
 int TmpSndDawAudioProcessor::getNumParameters()
 {
-  return 0;
+  return mParameters.size();
 }
 
-float TmpSndDawAudioProcessor::getParameter (int index)
+float TmpSndDawAudioProcessor::getParameter (int aIndex)
 {
-  return 0.0f;
+  return mParameters[aIndex]->mValue;
 }
 
-void TmpSndDawAudioProcessor::setParameter (int index, float newValue)
+void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 {
+  mParameters[aIndex]->mValue = aValue;
 }
 
-const String TmpSndDawAudioProcessor::getParameterName (int index)
+const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
 {
-  return String();
+  return mParameters[aIndex]->mName;
 }
 
-const String TmpSndDawAudioProcessor::getParameterText (int index)
+const String TmpSndDawAudioProcessor::getParameterText (int aIndex)
 {
-  return String();
+  return mParameters[aIndex]->mName;
 }
 
 const String TmpSndDawAudioProcessor::getInputChannelName (int channelIndex) const
@@ -327,7 +329,8 @@ bool TmpSndDawAudioProcessor::hasEditor() const
 
 AudioProcessorEditor* TmpSndDawAudioProcessor::createEditor()
 {
-  return new TmpSndDawAudioProcessorEditor (*this);
+  mEditor = new TmpSndDawAudioProcessorEditor(this);
+  return mEditor;
 }
 
 void TmpSndDawAudioProcessor::getStateInformation (MemoryBlock& destData)
@@ -381,6 +384,16 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
    *        "step": 10,
    *        "default": 10
    *     }
+   *   },
+   *   "sends": {
+   *     "reverb" : {
+   *       "decay": {
+   *         "min": 0.,
+   *         "max": 10.,
+   *         "step", 0.1,
+   *         "default", 5.
+   *       }
+   *     }
    *   }
    * }
    */
@@ -390,11 +403,35 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
 
   DynamicObject* obj = res.getDynamicObject();
   NamedValueSet& props (obj->getProperties());
-  Parameter param;
+
+  // find the sends name
+  Array<String> sendsNames;
+  for (int i = 0; i < props.size(); ++i) {
+    const Identifier id (props.getName (i));
+    if (id.toString() == "sends") {
+      var values(props[id]);
+      DynamicObject* sendsObj = values.getDynamicObject();
+      NamedValueSet& sendsProps(sendsObj->getProperties());
+      for (int j = 0; j < sendsProps.size(); j++) {
+        const Identifier id (sendsProps.getName (j));
+        sendsNames.add(id.toString());
+      }
+    }
+  }
+
+  printf("Sends:\n");
+  for (uint32_t i = 0; i < sendsNames.size(); i++) {
+    printf("- %s\n", sendsNames[i].toRawUTF8());
+  }
 
   // instruments
   for (int i = 0; i < props.size(); ++i) {
     const Identifier idInst (props.getName (i));
+    // we deal with send and master effects separately
+    if (idInst.toString() == "sends" ||
+        idInst.toString() == "master") {
+      continue;
+    }
     var child (props[idInst]);
     if (!child.isObject()) {
       return false;
@@ -404,43 +441,114 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     NamedValueSet& paramProps (params->getProperties());
 
     // params
-    for (int i = 0; i < paramProps.size(); ++i) {
-      const Identifier id (paramProps.getName (i));
+    for (int j = 0; j < paramProps.size(); ++j) {
+      Parameter* param = new Parameter();
+      const Identifier id (paramProps.getName (j));
       var values(paramProps[id]);
       if (!values.isObject()) {
         return false;
       }
       // name is "instrumentName paramId"
-      param.mName = idInst.toString() + " " + id.toString();
+      param->mName = idInst.toString() + " " + id.toString();
       DynamicObject* valuesObj = values.getDynamicObject();
       NamedValueSet& valuesProps(valuesObj->getProperties());
 
       // min/max/step/default values
-      for (int i = 0; i < valuesProps.size(); ++i) {
-        String name = valuesProps.getName(i).toString();
-        float value = valuesProps.getValueAt(i).toString().getDoubleValue();
+      for (int k = 0; k < valuesProps.size(); ++k) {
+        String name = valuesProps.getName(k).toString();
+        float value = valuesProps.getValueAt(k).toString().getDoubleValue();
         if (name == "min") {
-          param.mMin = value;
+          param->mMin = value;
         } else if (name == "max") {
-          param.mMax = value;
+          param->mMax = value;
         } else if (name == "step") {
-          param.mStep = value;
+          param->mStep = value;
         } else if (name == "default") {
-          param.mDefault = value;
+          param->mDefault = value;
         } else {
           assert(false && "invalid key in instrument parameter");
         }
       }
       mParameters.add(param);
     }
+
+    for (uint32_t j = 0; j < sendsNames.size(); j++) {
+      Parameter* param = new Parameter();
+      param->mName = idInst.toString() + " " + " send " + sendsNames[j];
+      param->mMin = 0.0;
+      param->mMax = 2.0;
+      param->mStep = 0.01;
+      param->mDefault= 0.0;
+      mParameters.add(param);
+    }
+  }
+
+  // now, sends and master bus effects
+  for (int i = 0; i < props.size(); ++i) {
+    const Identifier idEffect(props.getName (i));
+    if (idEffect.toString() != "sends" &&
+        idEffect.toString() != "master") {
+      continue;
+    }
+    const Identifier idBus(props.getName (i)); // "sends" or "master"
+    var child (props[idEffect]);
+    if (!child.isObject()) {
+      return false;
+    }
+
+    DynamicObject* busEffectObj = child.getDynamicObject();
+    NamedValueSet& busEffectProps = (busEffectObj->getProperties());
+    for (uint32_t j = 0; j < busEffectProps.size(); j++) {
+      const Identifier idEffectParam(busEffectProps.getName (j));
+      var child (busEffectProps[idEffectParam]);
+      if (!child.isObject()) {
+        return false;
+      }
+
+      Parameter* param = new Parameter();
+
+      DynamicObject* busEffectParamObj = child.getDynamicObject();
+      NamedValueSet& busEffectParamProps = (busEffectParamObj->getProperties());
+      for (uint32_t k = 0; k < busEffectParamProps.size(); k++) {
+        const Identifier idEffectParamValue(busEffectParamProps.getName (k));
+        var child (busEffectParamProps[idEffectParamValue]);
+        if (!child.isObject()) {
+          return false;
+        }
+
+        // name is "type sendname sendparamname"
+        param->mName = idBus.toString() + " " +
+                       idEffectParam.toString() + " " +
+                       idEffectParamValue.toString();
+        DynamicObject* busEffectParamValueObj = child.getDynamicObject();
+        NamedValueSet& busEffectParamValueProps = (busEffectParamValueObj->getProperties());
+        for (uint32_t l = 0; l < busEffectParamValueProps.size(); l++) {
+          String name = busEffectParamValueProps.getName(l).toString();
+          float value = busEffectParamValueProps.getValueAt(l).toString().getDoubleValue();
+          if (name == "min") {
+            param->mMin = value;
+          } else if (name == "max") {
+            param->mMax = value;
+          } else if (name == "step") {
+            param->mStep = value;
+          } else if (name == "default") {
+            param->mDefault = value;
+          } else {
+            assert(false && "invalid key in bus parameter values");
+          }
+        }
+      }
+
+      mParameters.add(param);
+    }
   }
   String parsed;
   for (uint32_t i = 0; i < mParameters.size(); i++) {
-    parsed << mParameters[i].mName + "\n";
-    parsed << "\t" << "min" << mParameters[i].mMin << "\n";
-    parsed << "\t" << "max" << mParameters[i].mMax << "\n";
-    parsed << "\t" << "step" << mParameters[i].mStep << "\n";
-    parsed << "\t" << "default" << mParameters[i].mDefault << "\n";
+    parsed << mParameters[i]->mName + "\n";
+    parsed << "\t" << "min" << mParameters[i]->mMin << "\n";
+    parsed << "\t" << "max" << mParameters[i]->mMax << "\n";
+    parsed << "\t" << "step" << mParameters[i]->mStep << "\n";
+    parsed << "\t" << "default" << mParameters[i]->mDefault << "\n";
   }
   printf("%s\n", parsed.toRawUTF8());
 }
@@ -461,6 +569,12 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       assert(false && "not handled?");
       break;
   }
+}
+
+Array<Parameter*, CriticalSection>*
+TmpSndDawAudioProcessor::GetParametersArray()
+{
+  return &mParameters;
 }
 
 // This creates new instances of the plugin..
