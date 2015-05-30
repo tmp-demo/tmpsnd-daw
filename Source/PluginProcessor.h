@@ -43,8 +43,12 @@ private:
 
 struct Parameter
 {
-  char* mName;
+  String mName;
   float mValue;
+  float mMin;
+  float mMax;
+  float mStep;
+  float mDefault;
 };
 
 class TmpSndDawAudioProcessor  : public AudioProcessor
@@ -103,6 +107,7 @@ private:
       PROCESSING
     };
     State mState;
+    Array<Parameter, CriticalSection> mParameters;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessor)
 };

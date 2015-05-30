@@ -1,7 +1,32 @@
 <script>
 var params = {
   "kick": {
-    "release": 0.3
+    "release": {
+      "min": 0.0,
+      "max": 10.0,
+      "step": 0.01,
+      "default": 1.0
+    },
+    "pitch": {
+      "min": 30.,
+      "max": 300.,
+      "step": 1,
+      "default": 80.
+    }
+  },
+  "snare": {
+    "noise": {
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.8
+    },
+    "pitch": {
+      "min": 200.,
+      "max": 1000.,
+      "step": 1.,
+      "default": 400.
+    }
   }
 };
 var ws = new WebSocket("ws://localhost:7681", "tmpsnd");

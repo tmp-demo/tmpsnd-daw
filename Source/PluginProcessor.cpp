@@ -358,24 +358,28 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
    *     "param1name": {
    *        "min": 0,
    *        "max": 10,
-   *        "step": 1
+   *        "step": 1,
+   *        "default": 1
    *     },
    *     "param2name": {
    *        "min": 0,
    *        "max": 50,
-   *        "step": 10
+   *        "step": 10,
+   *        "default": 10
    *     },
    *   },
    *   "instrument2Name" : {
    *     "param1name": {
    *        "min": 0,
    *        "max": 10,
-   *        "step": 1
+   *        "step": 1,
+   *        "default": 1
    *     },
    *     "param2name": {
    *        "min": 0,
    *        "max": 50,
-   *        "step": 10
+   *        "step": 10,
+   *        "default": 10
    *     }
    *   }
    * }
@@ -384,15 +388,14 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     return false;
   }
 
-  String parsed;
   DynamicObject* obj = res.getDynamicObject();
   NamedValueSet& props (obj->getProperties());
+  Parameter param;
 
   // instruments
   for (int i = 0; i < props.size(); ++i) {
-    const Identifier id (props.getName (i));
-    parsed << props.getName(i).toString() << "\n";
-    var child (props[id]);
+    const Identifier idInst (props.getName (i));
+    var child (props[idInst]);
     if (!child.isObject()) {
       return false;
     }
@@ -403,13 +406,43 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     // params
     for (int i = 0; i < paramProps.size(); ++i) {
       const Identifier id (paramProps.getName (i));
-      parsed << "\t";
-      parsed << paramProps.getName(i).toString();
-      parsed << ": ";
-      parsed << paramProps.getValueAt(i).toString().getDoubleValue() << "\n";
+      var values(paramProps[id]);
+      if (!values.isObject()) {
+        return false;
+      }
+      // name is "instrumentName paramId"
+      param.mName = idInst.toString() + " " + id.toString();
+      DynamicObject* valuesObj = values.getDynamicObject();
+      NamedValueSet& valuesProps(valuesObj->getProperties());
+
+      // min/max/step/default values
+      for (int i = 0; i < valuesProps.size(); ++i) {
+        String name = valuesProps.getName(i).toString();
+        float value = valuesProps.getValueAt(i).toString().getDoubleValue();
+        if (name == "min") {
+          param.mMin = value;
+        } else if (name == "max") {
+          param.mMax = value;
+        } else if (name == "step") {
+          param.mStep = value;
+        } else if (name == "default") {
+          param.mDefault = value;
+        } else {
+          assert(false && "invalid key in instrument parameter");
+        }
+      }
+      mParameters.add(param);
     }
   }
-  printf(">> %s\n", parsed.toRawUTF8());
+  String parsed;
+  for (uint32_t i = 0; i < mParameters.size(); i++) {
+    parsed << mParameters[i].mName + "\n";
+    parsed << "\t" << "min" << mParameters[i].mMin << "\n";
+    parsed << "\t" << "max" << mParameters[i].mMax << "\n";
+    parsed << "\t" << "step" << mParameters[i].mStep << "\n";
+    parsed << "\t" << "default" << mParameters[i].mDefault << "\n";
+  }
+  printf("%s\n", parsed.toRawUTF8());
 }
 
 void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
