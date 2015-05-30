@@ -394,6 +394,16 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
    *         "default", 5.
    *       }
    *     }
+   *   },
+   *   "master": {
+   *     "compression" : {
+   *       "ratio": {
+   *         "min": 0.,
+   *         "max": 20.,
+   *         "step", 0.1,
+   *         "default", 4.
+   *       }
+   *     }
    *   }
    * }
    */
@@ -545,10 +555,10 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
   String parsed;
   for (uint32_t i = 0; i < mParameters.size(); i++) {
     parsed << mParameters[i]->mName + "\n";
-    parsed << "\t" << "min" << mParameters[i]->mMin << "\n";
-    parsed << "\t" << "max" << mParameters[i]->mMax << "\n";
-    parsed << "\t" << "step" << mParameters[i]->mStep << "\n";
-    parsed << "\t" << "default" << mParameters[i]->mDefault << "\n";
+    parsed << "\t" << "min:" << mParameters[i]->mMin << "\n";
+    parsed << "\t" << "max:" << mParameters[i]->mMax << "\n";
+    parsed << "\t" << "step:" << mParameters[i]->mStep << "\n";
+    parsed << "\t" << "default:" << mParameters[i]->mDefault << "\n";
   }
   printf("%s\n", parsed.toRawUTF8());
 }
@@ -561,6 +571,9 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       if (rv) {
         mState = PROCESSING;
       }
+      if (mEditor) {
+        mEditor->Initialize();
+      }
       break;
     }
     case PROCESSING:
@@ -569,6 +582,11 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       assert(false && "not handled?");
       break;
   }
+}
+
+void TmpSndDawAudioProcessor::OnEditorClose()
+{
+  mEditor = nullptr;
 }
 
 Array<Parameter*, CriticalSection>*

@@ -13,18 +13,20 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
     void paint (Graphics&) override;
     void resized() override;
 
+    uint32_t Initialize();
 
   private:
     TmpSndDawAudioProcessor* mProcessor;
 
     // return the max number of params for an inst so we can layout properly
-    uint32_t Initialize();
+    uint32_t InitializeParams();
 
     Array<Slider*> mSliders;
     Array<Label*> mParamLabels;
     Array<Label*> mInstLabels;
     Array<uint32_t> mInstMapping;
     Label* mTitle;
+    Label* mInstructions;
     WebSocketServer* mWebSocket;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessorEditor)

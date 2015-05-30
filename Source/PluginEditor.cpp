@@ -1,24 +1,46 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// width of a column
 const uint32_t instWidth = 200;
+// height of a slider
 const uint32_t paramHeight = 20;
+// padding to add to the height of a slider to display the name of the param
 const uint32_t verticalPadding = 20;
+// padding in between columns
 const uint32_t horizontalPadding = 20;
 
-TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor (TmpSndDawAudioProcessor* aProcessor)
+// this appears when you open the plugin UI, but it has not received JSON
+// configuraiton data yet
+const String INSTRUCTIONS =
+"Feed me some JSON at ws://localhost:7681. mmmh, JSON...";
+
+TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor(
+    TmpSndDawAudioProcessor* aProcessor)
 : AudioProcessorEditor (aProcessor),
   mProcessor (aProcessor),
-  mTitle(nullptr)
+  mTitle(nullptr),
+  mInstructions(nullptr)
 {
-  uint32_t maxParams = Initialize();
-  uint32_t instCount = mInstLabels.size();
-  uint32_t w = instCount * (horizontalPadding + instWidth);
-  uint32_t h = maxParams * (verticalPadding + paramHeight * 2) + paramHeight;
-  setSize (w + verticalPadding, h + horizontalPadding);
+  Initialize();
 }
 
 uint32_t TmpSndDawAudioProcessorEditor::Initialize()
+{
+  const MessageManagerLock mmLock;
+  uint32_t maxParams = InitializeParams();
+  uint32_t instCount = mInstLabels.size();
+  uint32_t w = instCount * (horizontalPadding + instWidth);
+  uint32_t h = maxParams * (verticalPadding + paramHeight) + paramHeight;
+  // a cute little square window when we haven't received configuration data
+  if (maxParams == 0 && instCount == 0) {
+    w = 200;
+    h = 200;
+  }
+  setSize (w + verticalPadding, h + horizontalPadding);
+}
+
+uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
 {
   Array<Parameter*, CriticalSection>* p = mProcessor->GetParametersArray();
   String currentInstName;
@@ -26,6 +48,9 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
   mParamLabels.clearQuick();
   mSliders.clearQuick();
   delete mTitle;
+  mTitle = nullptr;
+  delete mInstructions;
+  mInstructions = nullptr;
 
   mTitle = new Label();
   mTitle->setText(mProcessor->getName(), dontSendNotification);
@@ -76,11 +101,21 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
     mParamLabels.add(l);
     currentParamCount++;
   }
+
+  // we haven't received configuration data now, display a friendly message
+  // with instructions
+  if (maxParams == 0 && p->size() == 0) {
+    mInstructions = new Label();
+    mInstructions->setText(INSTRUCTIONS, dontSendNotification);
+    addAndMakeVisible(mInstructions);
+  }
+
   return maxParams;
 }
 
 TmpSndDawAudioProcessorEditor::~TmpSndDawAudioProcessorEditor()
 {
+  mProcessor->OnEditorClose();
 }
 
 void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
@@ -93,6 +128,7 @@ void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
 
 void TmpSndDawAudioProcessorEditor::resized()
 {
+  const MessageManagerLock mmLock;
   // in px
   uint32_t offsetX = -(horizontalPadding + instWidth);
   uint32_t offsetY = 0;
@@ -101,18 +137,20 @@ void TmpSndDawAudioProcessorEditor::resized()
   Font param("Courier New", 15, Font::plain);
   Font title("Courier New", 20, Font::italic | Font::bold);
 
-
-  Initialize();
+  uint32_t maxParams = Initialize();
 
   mTitle->setFont(title);
   mTitle->setBounds(0, 0, 200, 25);
+  if (maxParams == 0 && mSliders.size() == 0) {
+    mInstructions->setBounds(0, 30, 200, 170);
+  }
 
   uint32_t currentInst = -1;
   for (uint32_t i = 0; i < mSliders.size(); i++) {
     if (mInstMapping[i] != currentInst) {
       // new instrument put the instrument label
       currentInst = mInstMapping[i];
-      offsetY = 25;
+      offsetY = 25; // room for the title
       offsetX += horizontalPadding + instWidth;
       mInstLabels[currentInst]->setBounds(offsetX,
                                           offsetY,
