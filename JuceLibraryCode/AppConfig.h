@@ -213,7 +213,7 @@
  #define JucePlugin_Build_AAX              0
 #endif
 #ifndef  JucePlugin_Name
- #define JucePlugin_Name                   "tmpsnd-daw"
+ #define JucePlugin_Name                   "tmpsnd"
 #endif
 #ifndef  JucePlugin_Desc
  #define JucePlugin_Desc                   "DAW part of tmpsnd"
