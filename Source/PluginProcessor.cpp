@@ -40,8 +40,6 @@ WebSocketServer::Callback(struct libwebsocket_context *context,
 {
   int n;
 
-  printf("callback\n");
-
   if (threadShouldExit()) {
     return 1;
   }
@@ -214,6 +212,7 @@ void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 {
   mParameters[aIndex]->mValue = aValue;
   // send that to the socket
+  // xxx do param invalidation here so we can send in the cb or something
   char buf[1024];
   sprintf(buf, "%d,%f", aIndex, aValue);
   mWebSocket->Write(buf, strlen(buf));
@@ -315,22 +314,46 @@ void TmpSndDawAudioProcessor::releaseResources()
 
 void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffer& midiMessages)
 {
-  // In case we have more outputs than inputs, this code clears any output
-  // channels that didn't contain input data, (because these aren't
-  // guaranteed to be empty - they may contain garbage).
-  // I've added this to avoid people getting screaming feedback
-  // when they first compile the plugin, but obviously you don't need to
-  // this code if your algorithm already fills all the output channels.
+  // check if this works nicely when seeking and looping and such
+  AudioPlayHead* playHead = getPlayHead();
+  AudioPlayHead::CurrentPositionInfo info;
+  playHead->getCurrentPosition(info);
+  // that should be the transport time, right ?
+  // printf("%f\n", info.editOriginTime + info.timeInSeconds);
+
+  MidiBuffer::Iterator it(midiMessages);
+  MidiMessage msg;
+  int pos;
+  while(it.getNextEvent(msg, pos)) {
+    double ts = msg.getTimeStamp();
+    bool isNote = msg.isNoteOnOrOff();
+    bool isNoteOn = msg.isNoteOn();
+    bool isController = msg.isController();
+    uint32_t note = msg.getNoteNumber();
+    uint32_t channel = msg.getChannel();
+    uint8_t velocity = msg.getVelocity();
+    ProtocolMessage buf;
+    if (isNote) {
+      if (isNoteOn) {
+        buf = mProtocol.NoteOn(ts, channel, note, velocity);
+      } else {
+        buf = mProtocol.NoteOff(ts, channel);
+      }
+    } else if (isController) {
+      // mmh ? or just une the daw's curves
+      // buf = mProtocol.ParameterChange(ts, channel, )
+    } else {
+      assert(false && "not implemented");
+    }
+    mWebSocket->Write(buf.mData, buf.mLength);
+  }
+
   for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i)
     buffer.clear (i, 0, buffer.getNumSamples());
 
-  // This is the place where you'd normally do the guts of your plugin's
-  // audio processing...
   for (int channel = 0; channel < getNumInputChannels(); ++channel)
   {
     float* channelData = buffer.getWritePointer (channel);
-
-    // ..do something to the data...
   }
 }
 

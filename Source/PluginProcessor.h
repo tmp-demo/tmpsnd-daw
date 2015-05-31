@@ -3,6 +3,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "libwebsockets.h"
+#include "Protocol.h"
 
 class TmpSndDawAudioProcessor;
 class TmpSndDawAudioProcessorEditor;
@@ -116,7 +117,7 @@ private:
     State mState;
     Array<Parameter*, CriticalSection> mParameters;
     TmpSndDawAudioProcessorEditor* mEditor;
-
+    Protocol mProtocol;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessor)
 };
