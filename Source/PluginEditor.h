@@ -4,6 +4,8 @@
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "PluginProcessor.h"
 
+class SliderValueListener;
+
 class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
 {
   public:
@@ -14,6 +16,8 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
     void resized() override;
 
     uint32_t Initialize();
+
+    friend SliderValueListener;
 
   private:
     TmpSndDawAudioProcessor* mProcessor;

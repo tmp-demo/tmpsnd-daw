@@ -48,15 +48,9 @@ WebSocketServer::Callback(struct libwebsocket_context *context,
 
   switch (reason) {
     case LWS_CALLBACK_SERVER_WRITEABLE:
-      printf("writing: %s\n", &mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING]);
-      n = libwebsocket_write(wsi, &mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], mSessionData.len, LWS_WRITE_TEXT);
-      if (n < 0) {
-        lwsl_err("ERROR %d writing to socket, hanging up\n", n);
-        return 1;
-      }
-      if (n < (int)mSessionData.len) {
-        lwsl_err("Partial write\n");
-        return -1;
+      // hrm thread safety ?
+      if (!mWebSocketInstance) {
+        mWebSocketInstance = wsi;
       }
       break;
 
@@ -83,7 +77,9 @@ WebSocketServer::Callback(struct libwebsocket_context *context,
 
 
 WebSocketServer::WebSocketServer(TmpSndDawAudioProcessor* aProcessor)
-: Thread("WebSocketThread"), mProcessor(aProcessor)
+  : Thread("WebSocketThread"),
+    mProcessor(aProcessor),
+    mWebSocketInstance(nullptr)
 {
   force_exit = 0;
   startThread();
@@ -110,7 +106,6 @@ void WebSocketServer::run()
   struct lws_context_creation_info info;
   char uri[256] = "/";
   char address[256], ads_port[256 + 30];
-  struct libwebsocket *wsi;
 
   sServer = this;
 
@@ -150,17 +145,17 @@ void WebSocketServer::run()
       sprintf(ads_port, "%s:%u", address, port & 65535);
 
       int use_ssl = 0;
-      wsi = libwebsocket_client_connect_extended(context,
-                                                 address,
-                                                 port,
-                                                 use_ssl,
-                                                 uri,
-                                                 ads_port,
-                                                 ads_port,
-                                                 NULL,
-                                                 -1,
-                                                 nullptr);
-      if (!wsi) {
+      mWebSocketInstance = libwebsocket_client_connect_extended(context,
+                                                                address,
+                                                                port,
+                                                                use_ssl,
+                                                                uri,
+                                                                ads_port,
+                                                                ads_port,
+                                                                NULL,
+                                                                -1,
+                                                                nullptr);
+      if (!mWebSocketInstance) {
         lwsl_err("Client failed to connect to %s:%u\n", address, port);
         abort();
       }
@@ -172,6 +167,19 @@ void WebSocketServer::run()
 #else
     closelog();
 #endif
+}
+
+void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
+{
+  memcpy(&mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], aBuffer, aLength);
+  if (mWebSocketInstance) {
+    // hrm thread safety ?
+    uint32_t n = libwebsocket_write(mWebSocketInstance, &mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], aLength, LWS_WRITE_TEXT);
+    if (n == -1) {
+      printf("connection lost\n");
+      return;
+    }
+  }
 }
 
 
@@ -205,6 +213,10 @@ float TmpSndDawAudioProcessor::getParameter (int aIndex)
 void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 {
   mParameters[aIndex]->mValue = aValue;
+  // send that to the socket
+  char buf[1024];
+  sprintf(buf, "%d,%f", aIndex, aValue);
+  mWebSocket->Write(buf, strlen(buf));
 }
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)

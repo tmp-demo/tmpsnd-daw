@@ -15,6 +15,25 @@ const uint32_t horizontalPadding = 20;
 const String INSTRUCTIONS =
 "Feed me some JSON at ws://localhost:7681. mmmh, JSON...";
 
+class SliderValueListener : public Slider::Listener
+{
+public:
+  SliderValueListener(TmpSndDawAudioProcessorEditor* aEditor)
+    : mEditor(aEditor)
+  { }
+  void sliderValueChanged(Slider* aSlider) override
+  {
+    float value = aSlider->getValue();
+    // meh linear search
+    uint32_t paramIndex = mEditor->mSliders.indexOf(aSlider);
+    if (paramIndex != -1) {
+      mEditor->mProcessor->setParameter(paramIndex, value);
+    }
+  }
+private:
+  TmpSndDawAudioProcessorEditor* mEditor;
+};
+
 TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor(
     TmpSndDawAudioProcessor* aProcessor)
 : AudioProcessorEditor (aProcessor),
@@ -70,6 +89,7 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
     // text size: letter width * log(max) + log(1/step) ?
     s->setTextBoxStyle (Slider::TextBoxRight, false, 30, 20);
     s->setValue((*p)[i]->mDefault);
+    s->addListener(new SliderValueListener(this));
 
     // instrument label
     uint32_t index_param = (*p)[i]->mName.indexOfChar(' ');

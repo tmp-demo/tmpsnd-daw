@@ -24,6 +24,8 @@ public:
     unsigned int index;
   };
 
+  void Write(const char* aBuffer, uint32_t aLength);
+
   static int
   S_Callback(struct libwebsocket_context *context,
              struct libwebsocket *wsi,
@@ -38,6 +40,8 @@ private:
            enum libwebsocket_callback_reasons reason,
            void *in, size_t len);
   SessionData mSessionData;
+
+  struct libwebsocket * mWebSocketInstance;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebSocketServer)
 };
