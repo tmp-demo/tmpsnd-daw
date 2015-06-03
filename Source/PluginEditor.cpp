@@ -1,12 +1,14 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "SliderLookAndFeel.h"
+#include "LogoBlob.h"
 
 // width of a column
 const uint32_t instWidth = 200;
 // height of a slider
 const uint32_t paramHeight = 20;
 // padding to add to the height of a slider to display the name of the param
-const uint32_t verticalPadding = 20;
+const uint32_t verticalPadding = 25;
 // padding in between columns
 const uint32_t horizontalPadding = 20;
 
@@ -38,9 +40,9 @@ TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor(
     TmpSndDawAudioProcessor* aProcessor)
 : AudioProcessorEditor (aProcessor),
   mProcessor (aProcessor),
-  mTitle(nullptr),
   mInstructions(nullptr)
 {
+  mLogo = ImageFileFormat::loadFrom(LogoBlob::logoresized_png, LogoBlob::logoresized_pngSize);
   Initialize();
 }
 
@@ -66,14 +68,12 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
   mInstLabels.clearQuick();
   mParamLabels.clearQuick();
   mSliders.clearQuick();
-  delete mTitle;
-  mTitle = nullptr;
   delete mInstructions;
   mInstructions = nullptr;
 
-  mTitle = new Label();
-  mTitle->setText(mProcessor->getName(), dontSendNotification);
-  addAndMakeVisible(mTitle);
+  mLogoComponent = new ImageComponent();
+  mLogoComponent->setImage(mLogo);
+  addAndMakeVisible(mLogoComponent);
 
   uint32_t currentParamCount = 0;
   uint32_t maxParams = 0;
@@ -90,6 +90,7 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
     s->setTextBoxStyle (Slider::TextBoxRight, false, 30, 20);
     s->setValue((*p)[i]->mDefault);
     s->addListener(new SliderValueListener(this));
+    s->setLookAndFeel(new TmpSndDawLookAndFeel());
 
     // instrument label
     uint32_t index_param = (*p)[i]->mName.indexOfChar(' ');
@@ -136,6 +137,10 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
 TmpSndDawAudioProcessorEditor::~TmpSndDawAudioProcessorEditor()
 {
   mProcessor->OnEditorClose();
+  mSliders.clear();
+  mParamLabels.clear();
+  mInstLabels.clear();
+  delete mInstructions;
 }
 
 void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
@@ -143,24 +148,26 @@ void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
   g.fillAll (Colours::white);
 
   g.setColour (Colours::black);
-  g.setFont (15.0f);
+  g.setFont (16.0f);
 }
 
 void TmpSndDawAudioProcessorEditor::resized()
 {
+  // In some cases, this can be called from the web socket thread, we need to
+  // lock the main thread event loop.
   const MessageManagerLock mmLock;
   // in px
   uint32_t offsetX = -(horizontalPadding + instWidth);
   uint32_t offsetY = 0;
 
-  Font instFont("Courier New", 15, Font::bold);
-  Font param("Courier New", 15, Font::plain);
-  Font title("Courier New", 20, Font::italic | Font::bold);
+  Font instFont("Courier New", 16, Font::bold);
+  Font param("Courier New", 16, Font::plain);
 
   uint32_t maxParams = Initialize();
 
-  mTitle->setFont(title);
-  mTitle->setBounds(0, 0, 200, 25);
+  mLogoComponent->setBounds(4,4,mLogo.getWidth(),mLogo.getHeight());
+
+  // we haven't received the param list
   if (maxParams == 0 && mSliders.size() == 0) {
     mInstructions->setBounds(0, 30, 200, 170);
   }
@@ -168,9 +175,9 @@ void TmpSndDawAudioProcessorEditor::resized()
   uint32_t currentInst = -1;
   for (uint32_t i = 0; i < mSliders.size(); i++) {
     if (mInstMapping[i] != currentInst) {
-      // new instrument put the instrument label
+      // new instrument, put the instrument label
       currentInst = mInstMapping[i];
-      offsetY = 25; // room for the title
+      offsetY = mLogo.getHeight() + 4; // room for the title
       offsetX += horizontalPadding + instWidth;
       mInstLabels[currentInst]->setBounds(offsetX,
                                           offsetY,

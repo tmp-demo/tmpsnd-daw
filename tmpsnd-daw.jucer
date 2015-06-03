@@ -16,6 +16,8 @@
             file="Source/PluginProcessor.cpp"/>
       <FILE id="cQLIZ6" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
+      <FILE id="yIkNup" name="LogoBlob.cpp" compile="1" resource="0" file="Source/LogoBlob.cpp"/>
+      <FILE id="TtpbJ4" name="LogoBlob.h" compile="0" resource="0" file="Source/LogoBlob.h"/>
       <FILE id="BjO1DD" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="AomZii" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>

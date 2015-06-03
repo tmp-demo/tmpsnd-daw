@@ -29,9 +29,10 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
     Array<Label*> mParamLabels;
     Array<Label*> mInstLabels;
     Array<uint32_t> mInstMapping;
-    Label* mTitle;
     Label* mInstructions;
     WebSocketServer* mWebSocket;
+    Image mLogo;
+    ImageComponent* mLogoComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessorEditor)
 };
