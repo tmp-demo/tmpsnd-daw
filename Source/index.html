@@ -1,4 +1,14 @@
 <script>
+function n2f(n) {
+  return Math.pow(2, (n - 69) / 12) * 440;
+}
+
+function assert(predicat, msg) {
+  if (!predicat) {
+    throw msg;
+  }
+}
+
 var params = {
   "kick": {
     "release": {
@@ -63,11 +73,58 @@ var params = {
     }
   }
 };
+// map params to integers
 var ws = new WebSocket("ws://localhost:7681", "tmpsnd");
 ws.onopen = function(e) {
   ws.send(JSON.stringify(params));
 }
-ws.onmessage = function(e) {
-  console.log("received:" +e.data);
-}
+
+// function registerInstrument(inst) {
+//   instruments.push(inst);
+// }
+// 
+// function triggerInstrument(tuple) {
+//   inst[tuple[1]].play(tuple[0] /* delta t */,
+//                       n2f(tuple[2]) /* note */,
+//                       tuple[3] /* vel */);
+// }
+// 
+// function registerParameters(param) {
+//   assert(param instanceof AudioParam);
+//   parameters.push(param);
+// }
+// 
+// function setParameter(tuple) {
+//   
+// }
+// 
+// instruments = [
+//   function kick()
+// ]
+// 
+// tmpsnd = function() {
+// }
+// 
+// 
+// ws.onmessage = function(e) {
+//   // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
+//   // touch
+//   // for a param change, tuple[2] is the new value
+//   // for a note trigger, tuple[2] is the note, tuple[3] is the velocity
+//   var tuple = e.data.split(",");
+//   switch (tuple.len) {
+//     case 3: // parameter change
+//       param(tuple);
+//       break;
+//     case 4: // note trigger
+//       trigger(tuple);
+//       break;
+//     case 2: //note off
+//       stop(tuple);
+//       break;
+//     default:
+//       throw "weird message";
+//   }
+// }
+
 </script>

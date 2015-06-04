@@ -90,7 +90,7 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
     s->setTextBoxStyle (Slider::TextBoxRight, false, 30, 20);
     s->setValue((*p)[i]->mDefault);
     s->addListener(new SliderValueListener(this));
-    s->setLookAndFeel(new TmpSndDawLookAndFeel());
+    s->setLookAndFeel(new TmpSndDawLookAndFeelMinimal());
 
     // instrument label
     uint32_t index_param = (*p)[i]->mName.indexOfChar(' ');
