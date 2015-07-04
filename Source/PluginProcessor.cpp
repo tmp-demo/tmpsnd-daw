@@ -66,6 +66,9 @@ WebSocketServer::Callback(struct libwebsocket_context *context,
 
       libwebsocket_callback_on_writable(context, wsi);
       break;
+    case LWS_CALLBACK_CLOSED:
+      printf("connection closed, clearing state\n");
+      mProcessor->setState(TmpSndDawAudioProcessor::WAITING_FOR_PARAMS);
     default:
       break;
   }
@@ -86,6 +89,7 @@ WebSocketServer::WebSocketServer(TmpSndDawAudioProcessor* aProcessor)
 WebSocketServer::~WebSocketServer()
 {
   force_exit = 1;
+  libwebsocket_context_destroy(mWebSocketContext);
   stopThread(1000);
 }
 
@@ -93,7 +97,6 @@ void WebSocketServer::run()
 {
   int n = 0;
   int port = 7681;
-  struct libwebsocket_context *context;
   int opts = 0;
   const char *interface = NULL;
 #ifndef WIN32
@@ -127,8 +130,8 @@ void WebSocketServer::run()
   info.uid = -1;
   info.options = opts;
 
-  context = libwebsocket_create_context(&info);
-  if (context == NULL) {
+  mWebSocketContext = libwebsocket_create_context(&info);
+  if (mWebSocketContext == NULL) {
     lwsl_err("libwebsocket init failed\n");
     return;
   }
@@ -143,7 +146,7 @@ void WebSocketServer::run()
       sprintf(ads_port, "%s:%u", address, port & 65535);
 
       int use_ssl = 0;
-      mWebSocketInstance = libwebsocket_client_connect_extended(context,
+      mWebSocketInstance = libwebsocket_client_connect_extended(mWebSocketContext,
                                                                 address,
                                                                 port,
                                                                 use_ssl,
@@ -158,9 +161,8 @@ void WebSocketServer::run()
         abort();
       }
     }
-    n = libwebsocket_service(context, 10);
+    n = libwebsocket_service(mWebSocketContext, 10);
   }
-  libwebsocket_context_destroy(context);
 #ifdef WIN32
 #else
     closelog();
@@ -174,7 +176,7 @@ void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
     // hrm thread safety ?
     uint32_t n = libwebsocket_write(mWebSocketInstance, &mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], aLength, LWS_WRITE_TEXT);
     if (n == -1) {
-      printf("connection lost\n");
+      mProcessor->setState(TmpSndDawAudioProcessor::WAITING_FOR_PARAMS);
       return;
     }
   }
@@ -184,7 +186,8 @@ void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
 TmpSndDawAudioProcessor::TmpSndDawAudioProcessor()
 : mWebSocket(new WebSocketServer(this)),
   mState(WAITING_FOR_PARAMS),
-  mEditor(nullptr)
+  mEditor(nullptr),
+  mNeedResetWebSocketServer(false)
 {
 }
 
@@ -211,11 +214,7 @@ float TmpSndDawAudioProcessor::getParameter (int aIndex)
 void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 {
   mParameters[aIndex]->mValue = aValue;
-  // send that to the socket
-  // xxx do param invalidation here so we can send in the cb or something
-  char buf[1024];
-  sprintf(buf, "%d,%f", aIndex, aValue);
-  mWebSocket->Write(buf, strlen(buf));
+  mParameterChanged.set(aIndex, true);
 }
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
@@ -321,6 +320,25 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
   // that should be the transport time, right ?
   // printf("%f\n", info.editOriginTime + info.timeInSeconds);
 
+  if (mNeedResetWebSocketServer) {
+    ScopedLock lock(mLock);
+    delete mWebSocket;
+    mWebSocket = new WebSocketServer(this);
+    mNeedResetWebSocketServer = false;
+  }
+
+
+  // param changes first so notes have the right values
+  ProtocolMessage buf;
+  ScopedLock lock(mLock);
+  for (uint32_t i = 0; i < mParameterChanged.size(); i++) {
+    if (mParameterChanged[i]) {
+      buf = mProtocol.ParameterChange(0 /* now */, i, mParameters[i]->mValue);
+      mWebSocket->Write(buf.mData, buf.mLength);
+      mParameterChanged.set(i, false);
+    }
+  }
+
   MidiBuffer::Iterator it(midiMessages);
   MidiMessage msg;
   int pos;
@@ -345,7 +363,10 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
     } else {
       assert(false && "not implemented");
     }
-    mWebSocket->Write(buf.mData, buf.mLength);
+    {
+      ScopedLock lock(mLock);
+      mWebSocket->Write(buf.mData, buf.mLength);
+    }
   }
 
   for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i)
@@ -464,10 +485,10 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     }
   }
 
-  printf("Sends:\n");
-  for (uint32_t i = 0; i < sendsNames.size(); i++) {
-    printf("- %s\n", sendsNames[i].toRawUTF8());
-  }
+//  printf("Sends:\n");
+//  for (uint32_t i = 0; i < sendsNames.size(); i++) {
+//    printf("- %s\n", sendsNames[i].toRawUTF8());
+//  }
 
   // instruments
   for (int i = 0; i < props.size(); ++i) {
@@ -509,12 +530,13 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
         } else if (name == "step") {
           param->mStep = value;
         } else if (name == "default") {
-          param->mDefault = value;
+          param->mDefault = param->mValue = value;
         } else {
           assert(false && "invalid key in instrument parameter");
         }
       }
       mParameters.add(param);
+      mParameterChanged.add(true);
     }
 
     for (uint32_t j = 0; j < sendsNames.size(); j++) {
@@ -523,8 +545,9 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
       param->mMin = 0.0;
       param->mMax = 2.0;
       param->mStep = 0.01;
-      param->mDefault= 0.0;
+      param->mValue = param->mDefault= 0.0;
       mParameters.add(param);
+      mParameterChanged.add(true);
     }
   }
 
@@ -577,7 +600,7 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
           } else if (name == "step") {
             param->mStep = value;
           } else if (name == "default") {
-            param->mDefault = value;
+            param->mDefault = param->mValue = value;
           } else {
             assert(false && "invalid key in bus parameter values");
           }
@@ -585,6 +608,7 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
       }
 
       mParameters.add(param);
+      mParameterChanged.add(true);
     }
   }
   String parsed;
@@ -595,7 +619,22 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     parsed << "\t" << "step:" << mParameters[i]->mStep << "\n";
     parsed << "\t" << "default:" << mParameters[i]->mDefault << "\n";
   }
-  printf("%s\n", parsed.toRawUTF8());
+  // printf("%s\n", parsed.toRawUTF8());
+}
+
+void TmpSndDawAudioProcessor::setState(State aState)
+{
+  if (mState == PROCESSING &&
+      aState == WAITING_FOR_PARAMS) {
+    ScopedLock lock(mLock);
+    mParameters.clear();
+    mParameterChanged.clear();
+    if (mEditor) {
+      mEditor->reset();
+    }
+    mNeedResetWebSocketServer = true;
+  }
+  mState = aState;
 }
 
 void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)

@@ -9,6 +9,8 @@ function assert(predicat, msg) {
   }
 }
 
+ac = new AudioContext();
+
 var params = {
   "kick": {
     "release": {
@@ -22,6 +24,12 @@ var params = {
       "max": 300.,
       "step": 1,
       "default": 80.
+    },
+    "squarelease": {
+      "min": 0.0,
+      "max": 10.0,
+      "step": 0.001,
+      "default": 0.001
     },
     "squaremix": {
       "min": 0.0,
@@ -79,52 +87,112 @@ ws.onopen = function(e) {
   ws.send(JSON.stringify(params));
 }
 
-// function registerInstrument(inst) {
-//   instruments.push(inst);
-// }
-// 
-// function triggerInstrument(tuple) {
-//   inst[tuple[1]].play(tuple[0] /* delta t */,
-//                       n2f(tuple[2]) /* note */,
-//                       tuple[3] /* vel */);
-// }
-// 
-// function registerParameters(param) {
-//   assert(param instanceof AudioParam);
-//   parameters.push(param);
-// }
-// 
-// function setParameter(tuple) {
-//   
-// }
-// 
-// instruments = [
-//   function kick()
-// ]
-// 
-// tmpsnd = function() {
-// }
-// 
-// 
-// ws.onmessage = function(e) {
-//   // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
-//   // touch
-//   // for a param change, tuple[2] is the new value
-//   // for a note trigger, tuple[2] is the note, tuple[3] is the velocity
-//   var tuple = e.data.split(",");
-//   switch (tuple.len) {
-//     case 3: // parameter change
-//       param(tuple);
-//       break;
-//     case 4: // note trigger
-//       trigger(tuple);
-//       break;
-//     case 2: //note off
-//       stop(tuple);
-//       break;
-//     default:
-//       throw "weird message";
-//   }
-// }
+function trigger(tuple) {
+  channels[tuple[1]].play(0 /* delta t */,
+                          n2f(tuple[2]) /* note */,
+                          tuple[3] /* vel */);
+  console.log("triggering")
+}
+
+function stop(tuple) {
+  console.log("stopping " + tuple[1]);
+}
+
+parameters = [];
+
+function registerParameters(param) {
+  parameters.push(param);
+  return parameters.length - 1;
+}
+
+function setParameter(tuple) {
+  if (tuple[1] > parameters.length - 1) {
+    console.log("param out of range");
+    return;
+  }
+  parameters[tuple[1]].value = tuple[2];
+}
+
+function getParameter(index) {
+  return parameters[index].value;
+}
+
+instruments = [
+  function kick(sink) {
+    var bodyrelease = {value : 0.0};
+    var squarelease = {value : 0.0};
+    var squaremix = {value : 0.0};
+    var kickfreq = {value : 0.0};
+    osc = ac.createOscillator();
+    square = ac.createOscillator();
+    square.type = 'square'
+    bodyenveloppe = ac.createGain();
+    squareenveloppe = ac.createGain();
+
+    bodyenveloppe.gain.setValueAtTime(0, 0);
+    squareenveloppe.gain.setValueAtTime(0, 0);
+    osc.frequency.setValueAtTime(0, 0);
+
+    osc.connect(bodyenveloppe);
+    bodyenveloppe.connect(sink);
+    square.connect(squareenveloppe);
+    squareenveloppe.connect(sink);
+
+    KICK_RELEASE = registerParameters(bodyrelease);
+    KICK_FREQUENCY = registerParameters(kickfreq);
+    SQUARE_RELEASE = registerParameters(squarelease);
+    SQUARE_MIX = registerParameters(squaremix);
+
+    this.play = function(t, freq, vel) {
+      var t = t == 0 ? ac.currentTime : t;
+
+      osc.frequency.setValueAtTime(getParameter(KICK_FREQUENCY), t);
+
+      bodyenveloppe.gain.setValueAtTime(1, t);
+      bodyenveloppe.gain.setTargetAtTime(0, t+0.001, getParameter(KICK_RELEASE) / 3 );
+
+      squareenveloppe.gain.setValueAtTime(getParameter(SQUARE_MIX), t);
+      squareenveloppe.gain.setTargetAtTime(0, t + 0.001, getParameter(SQUARE_RELEASE) / 3)
+
+    }
+
+    osc.start();
+    square.start();
+  }
+]
+
+channels = [];
+
+tmpsnd = function() {
+  channels.push([]); // 1 indexed
+  for (var i in instruments) {
+    channels.push(new instruments[i](ac.destination));
+  }
+}
+
+
+ws.onmessage = function(e) {
+  console.log(e.data)
+  // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
+  // touch
+  // for a param change, tuple[2] is the new value
+  // for a note trigger, tuple[2] is the note, tuple[3] is the velocity
+  var tuple = e.data.split(",").map(Number);
+  switch (tuple.length) {
+    case 3: // parameter change
+      setParameter(tuple);
+      break;
+    case 4: // note trigger
+      trigger(tuple);
+      break;
+    case 2: //note off
+      stop(tuple);
+      break;
+    default:
+      throw "weird message";
+  }
+}
+
+tmpsnd();
 
 </script>

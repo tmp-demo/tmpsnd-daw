@@ -16,6 +16,7 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
     void resized() override;
 
     uint32_t Initialize();
+    void reset();
 
     friend SliderValueListener;
 

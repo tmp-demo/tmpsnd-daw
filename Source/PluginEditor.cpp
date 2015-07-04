@@ -61,6 +61,23 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
   setSize (w + verticalPadding, h + horizontalPadding);
 }
 
+void TmpSndDawAudioProcessorEditor::reset()
+{
+  const MessageManagerLock mmLock;
+  mInstLabels.clearQuick();
+  mParamLabels.clearQuick();
+  mSliders.clearQuick();
+  mInstMapping.clearQuick();
+
+  mInstructions = new Label();
+  mInstructions->setText(INSTRUCTIONS, dontSendNotification);
+  addAndMakeVisible(mInstructions);
+
+  uint32_t w = 200;
+  uint32_t h = 200;
+  setSize (w + verticalPadding, h + horizontalPadding);
+}
+
 uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
 {
   Array<Parameter*, CriticalSection>* p = mProcessor->GetParametersArray();

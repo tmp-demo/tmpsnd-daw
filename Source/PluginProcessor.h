@@ -43,6 +43,7 @@ private:
   SessionData mSessionData;
 
   struct libwebsocket * mWebSocketInstance;
+  struct libwebsocket_context * mWebSocketContext;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebSocketServer)
 };
@@ -60,6 +61,16 @@ struct Parameter
 class TmpSndDawAudioProcessor  : public AudioProcessor
 {
 public:
+
+    enum State {
+     /* first, params need to be received from the socket, as a JSON,
+      * deserialized and loaded */
+      WAITING_FOR_PARAMS,
+     /* then, processing happens, only writes from the plugin to the socket
+      * happen */
+      PROCESSING
+    };
+
     TmpSndDawAudioProcessor();
     ~TmpSndDawAudioProcessor();
 
@@ -102,22 +113,18 @@ public:
 
     bool deserializeParams(const void* aData, size_t aSize);
     void onReceivedData(const void* aData, size_t aSize);
+    void setState(State aState);
     Array<Parameter*, CriticalSection>* GetParametersArray();
 
 private:
     WebSocketServer* mWebSocket;
-    enum State {
-     /* first, params need to be received from the socket, as a JSON,
-      * deserialized and loaded */
-      WAITING_FOR_PARAMS,
-     /* then, processing happens, only writes from the plugin to the socket
-      * happen */
-      PROCESSING
-    };
     State mState;
     Array<Parameter*, CriticalSection> mParameters;
+    Array<bool, CriticalSection> mParameterChanged;
     TmpSndDawAudioProcessorEditor* mEditor;
     Protocol mProtocol;
+    CriticalSection mLock;
+    bool mNeedResetWebSocketServer;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessor)
 };
