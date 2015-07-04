@@ -11,19 +11,18 @@ events or parameter change events, it sends that to the WebSocket, using the
 following text protocol:
 
 - Parameter change: `time,index,value`:
-  -`time` is the time where the event happened in seconds (floating point)
-  -`index` is the index of the parameter (integer)
-  -`value` is the new value of the parameter (float).
-
+   * `time` is the time where the event happened in seconds (floating point)
+   * `index` is the index of the parameter (integer)
+   * `value` is the new value of the parameter (float).
 - Note On: `time,index,note,velocity`:
-  -`time` is the time where the event happened in seconds (floating point)
-  -`index` is the index of the instrument, which is equal to the midi channel
-  where the note was sent from (integer)
-  - `note` the MIDI note for this event
-  - `velocity` the MIDI velocity for this event
+   * `time` is the time where the event happened in seconds (floating point)
+   * `index` is the index of the instrument, which is equal to the midi channel
+     where the note was sent from (integer)
+   * `note` the MIDI note for this event
+   * `velocity` the MIDI velocity for this event
 - Note Off: `time,index`
-  -`time` is the time where the event happened in seconds (floating point)
-  -`index` is the index of the instrument, which is equal to the midi channel
+   * `time` is the time where the event happened in seconds (floating point)
+   * `index` is the index of the instrument, which is equal to the midi channel
   where the note was sent from (integer)
 
 # How to build?
