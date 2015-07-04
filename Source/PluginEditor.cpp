@@ -59,6 +59,7 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
     h = 200;
   }
   setSize (w + verticalPadding, h + horizontalPadding);
+    return maxParams;
 }
 
 void TmpSndDawAudioProcessorEditor::reset()

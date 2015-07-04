@@ -29,7 +29,7 @@ WebSocketServer::S_Callback(struct libwebsocket_context *context,
                 enum libwebsocket_callback_reasons reason, void *user,
                 void *in, size_t len)
 {
-  sServer->Callback(context, wsi, reason, in, len);
+  return sServer->Callback(context, wsi, reason, in, len);
 }
 
 int
@@ -38,8 +38,6 @@ WebSocketServer::Callback(struct libwebsocket_context *context,
                 enum libwebsocket_callback_reasons reason,
                 void *in, size_t len)
 {
-  int n;
-
   if (threadShouldExit()) {
     return 1;
   }
@@ -361,7 +359,7 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
       // mmh ? or just une the daw's curves
       // buf = mProtocol.ParameterChange(ts, channel, )
     } else {
-      assert(false && "not implemented");
+//      assert(false && "not implemented");
     }
     {
       ScopedLock lock(mLock);
@@ -372,10 +370,6 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
   for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i)
     buffer.clear (i, 0, buffer.getNumSamples());
 
-  for (int channel = 0; channel < getNumInputChannels(); ++channel)
-  {
-    float* channelData = buffer.getWritePointer (channel);
-  }
 }
 
 bool TmpSndDawAudioProcessor::hasEditor() const
@@ -620,6 +614,7 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
     parsed << "\t" << "default:" << mParameters[i]->mDefault << "\n";
   }
   // printf("%s\n", parsed.toRawUTF8());
+    return true;
 }
 
 void TmpSndDawAudioProcessor::setState(State aState)
