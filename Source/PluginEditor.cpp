@@ -48,7 +48,6 @@ TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor(
 
 uint32_t TmpSndDawAudioProcessorEditor::Initialize()
 {
-  const MessageManagerLock mmLock;
   uint32_t maxParams = InitializeParams();
   uint32_t instCount = mInstLabels.size();
   uint32_t w = instCount * (horizontalPadding + instWidth);
@@ -59,12 +58,11 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
     h = 200;
   }
   setSize (w + verticalPadding, h + horizontalPadding);
-    return maxParams;
+  return maxParams;
 }
 
 void TmpSndDawAudioProcessorEditor::reset()
 {
-  const MessageManagerLock mmLock;
   mInstLabels.clearQuick();
   mParamLabels.clearQuick();
   mSliders.clearQuick();
@@ -171,9 +169,6 @@ void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
 
 void TmpSndDawAudioProcessorEditor::resized()
 {
-  // In some cases, this can be called from the web socket thread, we need to
-  // lock the main thread event loop.
-  const MessageManagerLock mmLock;
   // in px
   uint32_t offsetX = -(horizontalPadding + instWidth);
   uint32_t offsetY = 0;

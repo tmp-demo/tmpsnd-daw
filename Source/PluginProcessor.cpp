@@ -625,7 +625,9 @@ void TmpSndDawAudioProcessor::setState(State aState)
     mParameters.clear();
     mParameterChanged.clear();
     if (mEditor) {
-      mEditor->reset();
+      MessageManager::callAsync([=] {
+        mEditor->reset();
+      });
     }
     mNeedResetWebSocketServer = true;
   }
@@ -641,7 +643,9 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
         mState = PROCESSING;
       }
       if (mEditor) {
-        mEditor->Initialize();
+        MessageManager::callAsync([=] {
+          mEditor->Initialize();
+        });
       }
       break;
     }
