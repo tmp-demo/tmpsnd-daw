@@ -27,9 +27,9 @@ following text protocol:
 
 # Configuration
 
-The first this that you need to do when the VST in inserted on a track is to open up your web page that contains you synth. It should connect to a websocket on the machine that runs the DAW (or `localhost` of course), on port 7681.
+The first thing that you need to do when the VST in inserted on a track is to open up your web page that contains you synth. It should connect to a websocket on the machine that runs the DAW (or `localhost` of course), on port 7681.
 
-The it should send a JSON-formatted string. The format goes like this, say, to define a snare drum, with two parameters, `noise` and `pitch`, two sends, `delay` and `reverb`, with parameters, and a master channel bus effect where you have a compressor with settable ratio:
+Then the web browser should send a JSON-formatted string to tell the VST what are the parameter for this synth. The format goes like this, say, to define a snare drum, with two parameters, `noise` and `pitch`, two sends, `delay` and `reverb`, with parameters, and a master channel bus effect where you have a compressor with settable ratio:
 
 ```json
 {
@@ -41,9 +41,9 @@ The it should send a JSON-formatted string. The format goes like this, say, to d
       "default": 0.8
     },
     "pitch": {
-      "min": 200.,
-      "max": 1000.,
-      "step": 1.,
+      "min": 200.0,
+      "max": 1000.0,
+      "step": 1.0,
       "default": 400.
     }
   },
@@ -51,17 +51,17 @@ The it should send a JSON-formatted string. The format goes like this, say, to d
     "reverb": {
       "decay": {
         "min": 0.0,
-        "max": 20.,
+        "max": 20.0,
         "step": 0.1,
-        "default":5.
+        "default":5.0
       }
     },
     "delay": {
       "feedback": {
         "min": 0.0,
-        "max": 150.,
-        "step": 1.,
-        "default":30.
+        "max": 150.0,
+        "step": 1.0,
+        "default":30.0
       }
     }
   },
@@ -69,9 +69,9 @@ The it should send a JSON-formatted string. The format goes like this, say, to d
     "compression": {
       "ratio": {
         "min": 0.0,
-        "max": 20.,
+        "max": 20.0,
         "step": 0.1,
-        "default":4.
+        "default":4.0
       }
     }
   }
