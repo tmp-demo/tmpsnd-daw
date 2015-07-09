@@ -44,7 +44,7 @@ Then the web browser should send a JSON-formatted string to tell the VST what ar
       "min": 200.0,
       "max": 1000.0,
       "step": 1.0,
-      "default": 400.
+      "default": 400.0
     }
   },
   "sends": {
