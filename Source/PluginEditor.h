@@ -26,14 +26,17 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
     // return the max number of params for an inst so we can layout properly
     uint32_t InitializeParams();
 
-    Array<Slider*> mSliders;
-    Array<Label*> mParamLabels;
-    Array<Label*> mInstLabels;
+    OwnedArray<Slider> mSliders;
+    OwnedArray<Label> mParamLabels;
+    OwnedArray<Label> mInstLabels;
     Array<uint32_t> mInstMapping;
-    Label* mInstructions;
+    ScopedPointer<Label> mInstructions;
     WebSocketServer* mWebSocket;
     Image mLogo;
-    ImageComponent* mLogoComponent;
+    ScopedPointer<ImageComponent> mLogoComponent;
+	ScopedPointer<LookAndFeel> mLookAndFeel;
+	Font mFontInst;
+	Font mFontParam;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessorEditor)
 };

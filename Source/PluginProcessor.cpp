@@ -5,12 +5,10 @@ static WebSocketServer* sServer = nullptr;
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 #include <assert.h>
 
 #ifndef _WIN32
-#include <syslog.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -87,8 +85,9 @@ WebSocketServer::WebSocketServer(TmpSndDawAudioProcessor* aProcessor)
 WebSocketServer::~WebSocketServer()
 {
   force_exit = 1;
-  libwebsocket_context_destroy(mWebSocketContext);
   stopThread(1000);
+  libwebsocket_cancel_service(mWebSocketContext);
+  libwebsocket_context_destroy(mWebSocketContext);
 }
 
 void WebSocketServer::run()
@@ -97,9 +96,6 @@ void WebSocketServer::run()
   int port = 7681;
   int opts = 0;
   const char *interface = NULL;
-#ifndef WIN32
-  int syslog_options = LOG_PID | LOG_PERROR;
-#endif
   int client = 0;
   int listen_port = 80;
   struct lws_context_creation_info info;
@@ -112,12 +108,6 @@ void WebSocketServer::run()
 
   memset(&info, 0, sizeof info);
 
-  /* we will only try to log things according to our debug_level */
-  setlogmask(LOG_UPTO (LOG_DEBUG));
-  openlog("lwsts", syslog_options, LOG_DAEMON);
-
-  /* tell the library what debug level to emit and to send it to syslog */
-  lws_set_log_level(debug_level, lwsl_emit_syslog);
   listen_port = port;
 
   info.port = listen_port;
@@ -399,7 +389,7 @@ void TmpSndDawAudioProcessor::setStateInformation (const void* data, int sizeInB
 bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
 {
   var res;
-  String str(static_cast<const char*>(aData), aSize);
+  String str(CharPointer_UTF8(static_cast<const char*>(aData)), aSize);
   if (aSize == 0) {
     return false;
   }

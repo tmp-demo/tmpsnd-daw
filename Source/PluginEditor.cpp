@@ -43,6 +43,9 @@ TmpSndDawAudioProcessorEditor::TmpSndDawAudioProcessorEditor(
   mInstructions(nullptr)
 {
   mLogo = ImageFileFormat::loadFrom(LogoBlob::logoresized_png, LogoBlob::logoresized_pngSize);
+  mFontInst = Font("Courier New", 16, Font::bold);
+  mFontParam = Font("Courier New", 16, Font::plain);
+  mLookAndFeel = new TmpSndDawLookAndFeelMinimal();
   Initialize();
 }
 
@@ -63,10 +66,10 @@ uint32_t TmpSndDawAudioProcessorEditor::Initialize()
 
 void TmpSndDawAudioProcessorEditor::reset()
 {
-  mInstLabels.clearQuick();
-  mParamLabels.clearQuick();
-  mSliders.clearQuick();
-  mInstMapping.clearQuick();
+  mInstLabels.clear();
+  mParamLabels.clear();
+  mSliders.clear();
+  mInstMapping.clear();
 
   mInstructions = new Label();
   mInstructions->setText(INSTRUCTIONS, dontSendNotification);
@@ -81,10 +84,9 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
 {
   Array<Parameter*, CriticalSection>* p = mProcessor->GetParametersArray();
   String currentInstName;
-  mInstLabels.clearQuick();
-  mParamLabels.clearQuick();
-  mSliders.clearQuick();
-  delete mInstructions;
+  mInstLabels.clear();
+  mParamLabels.clear();
+  mSliders.clear();
   mInstructions = nullptr;
 
   mLogoComponent = new ImageComponent();
@@ -106,7 +108,7 @@ uint32_t TmpSndDawAudioProcessorEditor::InitializeParams()
     s->setTextBoxStyle (Slider::TextBoxRight, false, 30, 20);
     s->setValue((*p)[i]->mDefault);
     s->addListener(new SliderValueListener(this));
-    s->setLookAndFeel(new TmpSndDawLookAndFeelMinimal());
+    s->setLookAndFeel(mLookAndFeel);
 
     // instrument label
     uint32_t index_param = (*p)[i]->mName.indexOfChar(' ');
@@ -156,7 +158,6 @@ TmpSndDawAudioProcessorEditor::~TmpSndDawAudioProcessorEditor()
   mSliders.clear();
   mParamLabels.clear();
   mInstLabels.clear();
-  delete mInstructions;
 }
 
 void TmpSndDawAudioProcessorEditor::paint (Graphics& g)
@@ -172,9 +173,6 @@ void TmpSndDawAudioProcessorEditor::resized()
   // in px
   uint32_t offsetX = -(horizontalPadding + instWidth);
   uint32_t offsetY = 0;
-
-  Font instFont("Courier New", 16, Font::bold);
-  Font param("Courier New", 16, Font::plain);
 
   uint32_t maxParams = Initialize();
 
@@ -196,14 +194,14 @@ void TmpSndDawAudioProcessorEditor::resized()
                                           offsetY,
                                           instWidth,
                                           verticalPadding);
-      mInstLabels[currentInst]->setFont(instFont);
+      mInstLabels[currentInst]->setFont(mFontInst);
       offsetY += verticalPadding * 2;
     }
     mSliders[i]->setBounds (offsetX,
                             offsetY,
                             instWidth,
                             paramHeight);
-    mParamLabels[i]->setFont(param);
+    mParamLabels[i]->setFont(mFontParam);
     offsetY += paramHeight + verticalPadding;
   }
 }
