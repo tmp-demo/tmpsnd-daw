@@ -31,17 +31,14 @@ class Protocol
     {}
     ProtocolMessage ParameterChange(float aTimestamp, uint32_t aIndex, float aValue) {
       uint32_t len = sprintf(mStorage, "%f,%d,%f", aTimestamp, aIndex, aValue);
-      printf("sending |%s|\n", mStorage);
       return ProtocolMessage(mStorage, len);
     }
     ProtocolMessage NoteOn(float aTimestamp, uint32_t aIndex, uint32_t aNote, uint8_t aVelocity) {
       uint32_t len = sprintf(mStorage, "%f,%d,%d,%d", aTimestamp, aIndex, aNote, aVelocity);
-      printf("sending |%s|\n", mStorage);
       return ProtocolMessage(mStorage, len);
     }
     ProtocolMessage NoteOff(float aTimestamp, uint32_t aIndex) {
       uint32_t len = sprintf(mStorage, "%f,%d", aTimestamp, aIndex);
-      printf("sending |%s|\n", mStorage);
       return ProtocolMessage(mStorage, len);
     }
   private:

@@ -125,6 +125,8 @@ private:
     Protocol mProtocol;
     CriticalSection mLock;
     bool mNeedResetWebSocketServer;
+	ScopedPointer<FileOutputStream> mLog;
+	File mLogFile;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessor)
 };

@@ -29,5 +29,11 @@
 
 Builds/Linux/build/
 Builds/VisualStudio2015/Debug
+Builds/VisualStudio2015/.vs
 Builds/VisualStudio2015/Release
 Builds/MacOSX/build
+
+*.suo
+*.sdf
+*.opensdf
+.suo

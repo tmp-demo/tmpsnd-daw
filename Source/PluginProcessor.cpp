@@ -172,16 +172,20 @@ void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
 
 
 TmpSndDawAudioProcessor::TmpSndDawAudioProcessor()
-: mWebSocket(new WebSocketServer(this)),
-  mState(WAITING_FOR_PARAMS),
-  mEditor(nullptr),
-  mNeedResetWebSocketServer(false)
+	: mWebSocket(new WebSocketServer(this)),
+	mState(WAITING_FOR_PARAMS),
+	mEditor(nullptr),
+	mNeedResetWebSocketServer(false)
 {
+	mLogFile = File::getSpecialLocation(File::userHomeDirectory).getChildFile("tmpsnd.snd").getNonexistentSibling();
+	mLogFile.create();
+	mLog = mLogFile.createOutputStream();
 }
 
 TmpSndDawAudioProcessor::~TmpSndDawAudioProcessor()
 {
   delete mWebSocket;
+  mLog->flush();
 }
 
 const String TmpSndDawAudioProcessor::getName() const
@@ -289,8 +293,7 @@ void TmpSndDawAudioProcessor::changeProgramName (int index, const String& newNam
 
 void TmpSndDawAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-  // Use this method as the place to do any pre-playback
-  // initialisation that you need..
+
 }
 
 void TmpSndDawAudioProcessor::releaseResources()
@@ -306,7 +309,7 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
   AudioPlayHead::CurrentPositionInfo info;
   playHead->getCurrentPosition(info);
   // that should be the transport time, right ?
-  // printf("%f\n", info.editOriginTime + info.timeInSeconds);
+  double transportTime = info.editOriginTime + info.timeInSeconds;
 
   if (mNeedResetWebSocketServer) {
     ScopedLock lock(mLock);
@@ -323,6 +326,8 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
     if (mParameterChanged[i]) {
       buf = mProtocol.ParameterChange(0 /* now */, i, mParameters[i]->mValue);
       mWebSocket->Write(buf.mData, buf.mLength);
+	  buf = mProtocol.ParameterChange(transportTime, i, mParameters[i]->mValue);
+	  mLog->writeText(String::formatted("%f,%d,%f\n", (float)transportTime, i, mParameters[i]->mValue), false, false);
       mParameterChanged.set(i, false);
     }
   }
@@ -331,19 +336,26 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
   MidiMessage msg;
   int pos;
   while(it.getNextEvent(msg, pos)) {
-    double ts = msg.getTimeStamp();
+	// convert to seconds offset from the beginning of the callback
+    double ts = msg.getTimeStamp() / getSampleRate();
     bool isNote = msg.isNoteOnOrOff();
     bool isNoteOn = msg.isNoteOn();
     bool isController = msg.isController();
     uint32_t note = msg.getNoteNumber();
     uint32_t channel = msg.getChannel();
     uint8_t velocity = msg.getVelocity();
-    ProtocolMessage buf;
+    ProtocolMessage bufrt;
+	ProtocolMessage buffile;
+
     if (isNote) {
       if (isNoteOn) {
-        buf = mProtocol.NoteOn(ts, channel, note, velocity);
+        bufrt = mProtocol.NoteOn(ts, channel, note, velocity);
+		mLog->writeText(String::formatted("%f,%d,%d,%d\n", (float)transportTime + ts, channel, note, velocity), false, false);
+
       } else {
-        buf = mProtocol.NoteOff(ts, channel);
+        bufrt = mProtocol.NoteOff(ts, channel);
+		mLog->writeText(String::formatted("%f,%d\n", (float)transportTime + ts, channel), false, false);
+
       }
     } else if (isController) {
       // mmh ? or just une the daw's curves
@@ -353,13 +365,14 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
     }
     {
       ScopedLock lock(mLock);
-      mWebSocket->Write(buf.mData, buf.mLength);
+      mWebSocket->Write(bufrt.mData, bufrt.mLength);
     }
   }
 
-  for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i)
-    buffer.clear (i, 0, buffer.getNumSamples());
-
+  // We don't output sound here, we're just being polite.
+  for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i) {
+	  buffer.clear(i, 0, buffer.getNumSamples());
+  }
 }
 
 bool TmpSndDawAudioProcessor::hasEditor() const
