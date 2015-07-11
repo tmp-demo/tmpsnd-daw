@@ -7,6 +7,8 @@ static WebSocketServer* sServer = nullptr;
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "pluginterfaces/vst2.x/aeffectx.h"
+
 
 #ifndef _WIN32
 #include <sys/time.h>
@@ -195,27 +197,42 @@ const String TmpSndDawAudioProcessor::getName() const
 
 int TmpSndDawAudioProcessor::getNumParameters()
 {
-  return mParameters.size();
+  return 30;
 }
 
 float TmpSndDawAudioProcessor::getParameter (int aIndex)
 {
+	if (aIndex > mParameters.size() - 1) {
+		return 0.0f;
+	}
   return mParameters[aIndex]->mValue;
 }
 
 void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 {
+	if (aIndex > mParameters.size() - 1) {
+		return;
+	}
   mParameters[aIndex]->mValue = aValue;
   mParameterChanged.set(aIndex, true);
+  
 }
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
 {
+	if (aIndex > mParameters.size() - 1) {
+		return String("---");
+	}
+
   return mParameters[aIndex]->mName;
 }
 
 const String TmpSndDawAudioProcessor::getParameterText (int aIndex)
 {
+	if (aIndex > mParameters.size() - 1) {
+		return String("---");
+	}
+
   return mParameters[aIndex]->mName;
 }
 
@@ -645,6 +662,8 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       if (rv) {
         mState = PROCESSING;
       }
+	  int listadj[2] = { 0, mParameters.size() };
+	  hostCallback(audioMasterVendorSpecific, 0xdeadbeef, audioMasterAutomate, listadj, 0.0);
       if (mEditor) {
         MessageManager::callAsync([=] {
           mEditor->Initialize();
