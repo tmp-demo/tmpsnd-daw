@@ -14,6 +14,8 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
 
     void paint (Graphics&) override;
     void resized() override;
+	void setParameter(uint32_t aIndex, float aValue);
+
 
     uint32_t Initialize();
     void reset();
@@ -37,6 +39,7 @@ class TmpSndDawAudioProcessorEditor  : public AudioProcessorEditor
 	ScopedPointer<LookAndFeel> mLookAndFeel;
 	Font mFontInst;
 	Font mFontParam;
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TmpSndDawAudioProcessorEditor)
 };

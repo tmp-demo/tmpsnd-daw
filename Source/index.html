@@ -92,11 +92,9 @@ function trigger(tuple) {
   channels[tuple[1]].play(0 /* delta t */,
                           n2f(tuple[2]) /* note */,
                           tuple[3] /* vel */);
-  console.log("triggering")
 }
 
 function stop(tuple) {
-  console.log("stopping " + tuple[1]);
 }
 
 parameters = [];
@@ -147,10 +145,12 @@ instruments = [
     this.play = function(t, freq, vel) {
       var t = t == 0 ? ac.currentTime : t;
 
-      osc.frequency.setValueAtTime(getParameter(KICK_FREQUENCY), t);
-
       bodyenveloppe.gain.setValueAtTime(1, t);
       bodyenveloppe.gain.setTargetAtTime(0, t+0.001, getParameter(KICK_RELEASE) / 3 );
+
+      osc.frequency.cancelScheduledValues(t);
+      osc.frequency.setValueAtTime(getParameter(KICK_FREQUENCY), t);
+      osc.frequency.linearRampToValueAtTime(getParameter(KICK_FREQUENCY) / 1.3, t + 0.5, getParameter(KICK_RELEASE) / 3);
 
       squareenveloppe.gain.setValueAtTime(getParameter(SQUARE_MIX), t);
       squareenveloppe.gain.setTargetAtTime(0, t + 0.001, getParameter(SQUARE_RELEASE) / 3)
@@ -173,7 +173,6 @@ tmpsnd = function() {
 
 
 ws.onmessage = function(e) {
-  console.log(e.data)
   // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
   // touch
   // for a param change, tuple[2] is the new value

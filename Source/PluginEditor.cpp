@@ -205,3 +205,8 @@ void TmpSndDawAudioProcessorEditor::resized()
     offsetY += paramHeight + verticalPadding;
   }
 }
+
+void TmpSndDawAudioProcessorEditor::setParameter(uint32_t aIndex, float aValue)
+{
+	mSliders[aIndex]->setValue(aValue);
+}

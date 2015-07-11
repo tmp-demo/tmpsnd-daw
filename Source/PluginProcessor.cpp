@@ -215,7 +215,7 @@ void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
 	}
   mParameters[aIndex]->mValue = aValue;
   mParameterChanged.set(aIndex, true);
-  
+  mEditor->setParameter(aIndex, aValue);
 }
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
@@ -662,8 +662,6 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       if (rv) {
         mState = PROCESSING;
       }
-	  int listadj[2] = { 0, mParameters.size() };
-	  hostCallback(audioMasterVendorSpecific, 0xdeadbeef, audioMasterAutomate, listadj, 0.0);
       if (mEditor) {
         MessageManager::callAsync([=] {
           mEditor->Initialize();
