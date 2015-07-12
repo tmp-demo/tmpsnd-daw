@@ -13,6 +13,12 @@ ac = new AudioContext();
 
 var params = {
   "kick": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
     "release": {
       "min": 0.0,
       "max": 10.0,
@@ -45,6 +51,12 @@ var params = {
     },
   },
   "snare": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
     "noise release": {
       "min": 0.0,
       "max": 2.0,
@@ -71,6 +83,12 @@ var params = {
     }
   },
   "hihat": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
     "release": {
       "min": 0.0,
       "max": 0.3,
@@ -85,6 +103,12 @@ var params = {
     },
   },
   "substractive": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
     "cutoff": {
       "min": 0.0,
       "max": 15000.,
@@ -129,9 +153,21 @@ var params = {
         "max": 1.50,
         "step": 0.01,
         "default":0.30
+      },
+      "time": {
+        "min": 0.0,
+        "max": 3.0,
+        "step": 0.01,
+        "default":0.33
       }
     },
     "reverb": {
+      "length": {
+        "min": 0.0,
+        "max": 50.,
+        "step": 0.1,
+        "default":1.
+      },
       "decay": {
         "min": 0.0,
         "max": 20.,
@@ -142,11 +178,35 @@ var params = {
   },
   "master": {
     "compression": {
+      "threshold": {
+        "min": -48.,
+        "max": 0.,
+        "step": 0.1,
+        "default": -12.
+      },
+      "knee": {
+        "min": 0.0,
+        "max": 40.,
+        "step": 0.1,
+        "default":30.
+      },
       "ratio": {
         "min": 0.0,
-        "max": 20.,
+        "max": 40.,
         "step": 0.1,
         "default":4.
+      },
+      "attack": {
+        "min": 0.0,
+        "max": 1.,
+        "step": 0.001,
+        "default":0.003
+      },
+      "release": {
+        "min": 0.0,
+        "max": 1.,
+        "step": 0.01,
+        "default":0.25
       }
     }
   }
@@ -155,6 +215,7 @@ var params = {
 // var ws = new WebSocket("ws://localhost:7681", "tmpsnd");
 var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
 ws.onopen = function(e) {
+  console.log(JSON.stringify(params));
   ws.send(JSON.stringify(params));
 }
 
@@ -177,20 +238,29 @@ function stop(tuple) {
 parameters = [];
 
 function registerParameters(param) {
-  parameters.push(param);
+  if (param instanceof AudioParam) {
+    parameters.push({value: 0.0, audioparam: param});
+  } else if (param instanceof Function) {
+    parameters.push({value: 0.0, func: param});
+  } else {
+    parameters.push(param);
+  }
   return parameters.length - 1;
 }
 
 function setParameter(tuple) {
+  tuple[0] = ac.currentTime + 0.1;
   if (tuple[1] > parameters.length - 1) {
     console.log("param out of range");
     return;
   }
-  if (parameters[tuple[1]] instanceof AudioParam) {
-    parameters[tuple[1]].setValueAtTime(tuple[2], tuple[0]);
-  } else if (parameters[tuple[1]] instanceof Function) {
-    parameters[tuple[1]](tuple[2]);
-  } else {
+  if (parameters[tuple[1]].audioparam) { // AudioParam
+    parameters[tuple[1]].audioparam.setValueAtTime(tuple[2], tuple[0]);
+    parameters[tuple[1]].value = tuple[2];
+  } else if (parameters[tuple[1]].func) { // Function
+    parameters[tuple[1]].func(tuple[2], tuple[0]);
+    parameters[tuple[1]].value = tuple[2];
+  } else {                                // Simple value
     parameters[tuple[1]].value = tuple[2];
   }
 }
@@ -343,7 +413,6 @@ instruments = [
   }
  },
  function substractive(sink) {
-  var cutoff = {value: 0.0};
   var q = {value: 0.0};
   var detune = {value: 0.0};
   var filterattack = {value: 0.0};
@@ -357,7 +426,7 @@ instruments = [
   var filter = ac.createBiquadFilter();
   var enveloppe = ac.createGain();
 
-  var CUTOFF = registerParameters(cutoff);
+  var CUTOFF = registerParameters(filter.frequency);
   var Q = registerParameters(q);
   var DETUNE = registerParameters(detune);
   var FILTER_ATTACK = registerParameters(filterattack);
@@ -410,6 +479,8 @@ function reverbBuffer(length, decay) {
 }
 
 var master = ac.createGain();
+var analyser = ac.createAnalyser();
+master.connect(analyser);
 var comp = ac.createDynamicsCompressor();
 master.connect(comp);
 comp.connect(ac.destination);
@@ -429,6 +500,7 @@ tmpsnd = function() {
   channels.push([]); // 1 indexed
   for (var i in instruments) {
     var volume = ac.createGain();
+    registerParameters(volume.gain);
     var send_delay = ac.createGain();
     var send_reverb = ac.createGain();
     channels.push(new instruments[i](volume));
@@ -443,9 +515,20 @@ tmpsnd = function() {
     registerParameters(send_reverb.gain);
   }
   registerParameters(delayGain.gain);
-  registerParameters(function(newValue) {
-    reverb.buffer = reverbBuffer(newValue, 5);
+  registerParameters(delay.delayTime);
+
+  var REVERB_LENGTH = registerParameters(function(newValue) {
+    reverb.buffer = reverbBuffer(newValue, getParameter(REVERB_DECAY));
   });
+  var REVERB_DECAY = registerParameters(function(newValue) {
+    reverb.buffer = reverbBuffer(getParameter(REVERB_LENGTH), newValue);
+  });
+  registerParameters(comp.ratio);
+  registerParameters(comp.threshold);
+  registerParameters(comp.knee);
+  registerParameters(comp.ratio);
+  registerParameters(comp.attack);
+  registerParameters(comp.release);
 }
 
 
@@ -492,4 +575,43 @@ document.onvisibilitychanged = function() {
   }
 }
 
+window.onload = function() {
+  var cvs = document.querySelector("canvas");
+  var w = cvs.width = window.innerWidth;
+  var h = cvs.height = window.innerHeight;
+
+  analyser.fftSize = 2048;
+
+  var fftarray = new Float32Array(analyser.frequencyBinCount);
+  var timearray = new Float32Array(analyser.frequencyBinCount);
+
+  var binwidth = Math.ceil(w / analyser.frequencyBinCount) / 2;
+
+  var c = cvs.getContext("2d");
+
+  function render() {
+    c.clearRect(0, 0, w, h);
+    analyser.getFloatFrequencyData(fftarray);
+    analyser.getFloatTimeDomainData(timearray);
+    var offset = 0;
+    c.beginPath();
+    c.lineWidth = 3;
+    c.strokeStyle = "rgb(100, 100, 100)";
+    c.moveTo(0, h/2);
+    for (var i = 0; i < fftarray.length; i++) {
+      var normalized = (fftarray[i] - analyser.minDecibels) / -(analyser.minDecibels + analyser.maxDecibels);
+      c.fillRect(offset, h - normalized * h, binwidth, normalized * h);
+      c.lineTo(offset, h/2 + timearray[i] * 100);
+      offset += binwidth * 1.5;
+    }
+    var reduction = comp.reduction instanceof AudioParam ? comp.reduction.value : comp.reduction;
+    c.fillRect(w - 100, h, w, reduction * 40);
+    c.stroke();
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+}
+
+
 </script>
+<canvas></canvas>
