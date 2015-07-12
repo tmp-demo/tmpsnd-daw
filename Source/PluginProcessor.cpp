@@ -587,11 +587,11 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
         return false;
       }
 
-      Parameter* param = new Parameter();
 
       DynamicObject* busEffectParamObj = child.getDynamicObject();
       NamedValueSet& busEffectParamProps = (busEffectParamObj->getProperties());
       for (uint32_t k = 0; k < busEffectParamProps.size(); k++) {
+		Parameter* param = new Parameter();
         const Identifier idEffectParamValue(busEffectParamProps.getName (k));
         var child (busEffectParamProps[idEffectParamValue]);
         if (!child.isObject()) {
@@ -619,10 +619,9 @@ bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
             assert(false && "invalid key in bus parameter values");
           }
         }
+		mParameters.add(param);
+		mParameterChanged.add(true);
       }
-
-      mParameters.add(param);
-      mParameterChanged.add(true);
     }
   }
   String parsed;
