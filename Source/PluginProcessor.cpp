@@ -197,32 +197,42 @@ const String TmpSndDawAudioProcessor::getName() const
 
 int TmpSndDawAudioProcessor::getNumParameters()
 {
-  return 30;
+  return 100;
 }
 
 float TmpSndDawAudioProcessor::getParameter (int aIndex)
 {
-	if (aIndex > mParameters.size() - 1) {
-		return 0.0f;
-	}
+  if (aIndex > mParameters.size() - 1) {
+	return 0.0f;
+  }
   return mParameters[aIndex]->mValue;
 }
 
-void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue)
+void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue, bool aFromDaw)
 {
-	if (aIndex > mParameters.size() - 1) {
-		return;
-	}
-  mParameters[aIndex]->mValue = aValue;
+  if (aIndex > mParameters.size() - 1) {
+	return;
+  }
+  // The DAW sends param that are in [0,1], rescale to the right domain
+  if (aFromDaw) {
+	  mParameters[aIndex]->mValue = aValue * (mParameters[aIndex]->mMax - mParameters[aIndex]->mMin) + mParameters[aIndex]->mMin;
+  }
+  else {
+	  mParameters[aIndex]->mValue = aValue;
+  }
   mParameterChanged.set(aIndex, true);
-  mEditor->setParameter(aIndex, aValue);
+  // Only update the UI if this call was from the DAW, otherwise, the UI is already up-to-date
+  if (aFromDaw) {
+	mEditor->setParameter(aIndex, mParameters[aIndex]->mValue);
+  }
 }
+
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
 {
-	if (aIndex > mParameters.size() - 1) {
-		return String("---");
-	}
+  if (aIndex > mParameters.size() - 1) {
+    return String("---");
+  }
 
   return mParameters[aIndex]->mName;
 }

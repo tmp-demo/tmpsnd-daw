@@ -29,7 +29,7 @@ public:
     // meh linear search
     uint32_t paramIndex = mEditor->mSliders.indexOf(aSlider);
     if (paramIndex != -1) {
-      mEditor->mProcessor->setParameter(paramIndex, value);
+      mEditor->mProcessor->setParameter(paramIndex, value, false);
     }
   }
 private:

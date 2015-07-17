@@ -2,6 +2,8 @@
 
 VST plugin to author tmpsnd tracks in a DAW, written in C++ using Juce and `libwebsockets`
 
+![A screenshot of tmpsnd running](tmpsnd-screenshot-1.png)
+
 # General order of operation
 
 The VST, when loaded, creates a WebSocket server on port 7681. It waits for

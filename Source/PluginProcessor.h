@@ -87,7 +87,11 @@ public:
 
     int getNumParameters() override;
     float getParameter (int index) override;
-    void setParameter (int index, float newValue) override;
+	void setParameter(int index, float newValue) override
+	{
+		setParameter(index, newValue, true);
+	}
+    void setParameter (int index, float newValue, bool aFromDaw = true);
 
     const String getParameterName (int index) override;
     const String getParameterText (int index) override;

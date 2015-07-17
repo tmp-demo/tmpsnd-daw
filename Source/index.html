@@ -23,13 +23,13 @@ var params = {
       "min": 0.0,
       "max": 10.0,
       "step": 0.001,
-      "default": 0.13
+      "default": 1.5
     },
     "pitch": {
       "min": 30.,
       "max": 300.,
       "step": 1,
-      "default": 50.
+      "default": 45.
     },
     "noise release": {
       "min": 0.0001,
@@ -41,13 +41,13 @@ var params = {
       "min": 0.0,
       "max": 10.0,
       "step": 0.01,
-      "default": 0.3
+      "default": 1.45
     },
     "lowpass": {
       "min": 20.0,
       "max": 20000.0,
       "step": 1,
-      "default": 5000. 
+      "default": 6000. 
     },
   },
   "snare": {
@@ -61,19 +61,19 @@ var params = {
       "min": 0.0,
       "max": 2.0,
       "step": 0.01,
-      "default": 0.04
+      "default": 0.06
     },
     "body release": {
       "min": 0.0,
       "max": 2.0,
       "step": 0.01,
-      "default": 0.03
+      "default": 0.04
     },
     "lowpass": {
       "min": 50.0,
       "max": 10000.0,
       "step": 1,
-      "default": 500.
+      "default": 3800.
     },
     "pitch": {
       "min": 200.,
@@ -87,19 +87,67 @@ var params = {
       "min": 0.0,
       "max": 3.0,
       "step": 0.01,
-      "default": 1 
+      "default": 2.6
     },
-    "release": {
+    "release hipass": {
       "min": 0.0,
       "max": 0.3,
       "step": 0.01,
-      "default": 0.1
+      "default": 0.09
     },
-    "hipass cutoff": {
+    "release bandpass": {
+      "min": 0.0,
+      "max": 0.3,
+      "step": 0.01,
+      "default": 0.04
+    },
+    "bandpass freq": {
       "min": 0.0,
       "max": 15000.,
       "step": 0.1,
-      "default": 10000. 
+      "default": 11800. 
+    },
+    "highpass freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 7300. 
+    },
+    "osc1 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 50. 
+    },
+    "osc2 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 100. 
+    },
+    "osc3 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 150. 
+    },
+    "osc4 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 200
+    },
+    "osc5 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 250. 
+    },
+    "osc6 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 300. 
     },
   },
   "substractive": {
@@ -119,7 +167,7 @@ var params = {
       "min": 0.0,
       "max": 80.,
       "step": 0.1,
-      "default": 10. 
+      "default": 15. 
     },
     "detune": {
       "min": -1200.0,
@@ -131,7 +179,7 @@ var params = {
       "min": 0.01,
       "max": 0.5,
       "step": 0.01,
-      "default": 0.1
+      "default": 0.01
     },
     "attack": {
       "min": 0.0,
@@ -143,7 +191,7 @@ var params = {
       "min": 0.001,
       "max": 1.,
       "step": 0.01,
-      "default": 0.1
+      "default": 0.05
     }
   },
   "sends": {
@@ -213,7 +261,8 @@ var params = {
 };
 // map params to integers
 // var ws = new WebSocket("ws://localhost:7681", "tmpsnd");
-var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
+// var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
+var ws = new WebSocket("ws://10.243.29.98:7681", "tmpsnd");
 ws.onopen = function(e) {
   console.log(JSON.stringify(params));
   ws.send(JSON.stringify(params));
@@ -221,7 +270,7 @@ ws.onopen = function(e) {
 
 function trigger(tuple) {
   var t = ac.currentTime;
-  t+= 0.1; // give some slack for scheduling in case the main thread is busy pixeling
+  // t+= 0.1; // give some slack for scheduling in case the main thread is busy pixeling
   channels[tuple[1]].play(t /* delta t */,
                           n2f(tuple[2]) /* note */,
                           (tuple[3] - 1) / 127);
@@ -229,7 +278,7 @@ function trigger(tuple) {
 
 function stop(tuple) {
   var t = ac.currentTime;
-  t+= 0.1; // give some slack for scheduling in case the main thread is busy pixeling
+  // t+= 0.1; // give some slack for scheduling in case the main thread is busy pixeling
   if (channels[tuple[1]].stop) {
     channels[tuple[1]].stop(t);
   }
@@ -249,7 +298,7 @@ function registerParameters(param) {
 }
 
 function setParameter(tuple) {
-  tuple[0] = ac.currentTime + 0.1;
+  tuple[0] = ac.currentTime;
   if (tuple[1] > parameters.length - 1) {
     console.log("param out of range");
     return;
@@ -279,9 +328,9 @@ function noiseBuffer() {
 }
 
 function release(t, param, startValue, endValue, constant) {
-  param.cancelScheduledValues(t);
+  // param.cancelScheduledValues(t);
   param.setValueAtTime(startValue, t);
-  param.setTargetAtTime(endValue, t+0.001, constant);
+  param.setTargetAtTime(endValue, t+0.005, constant);
 }
 
 instruments = [
@@ -293,6 +342,7 @@ instruments = [
     var lopass = {value: 0.0};
 
     var osc = ac.createOscillator();
+    var velocity = ac.createGain();
     var bodyenveloppe = ac.createGain();
     var noiseenveloppe = ac.createGain();
     var lopass = ac.createBiquadFilter();
@@ -302,23 +352,25 @@ instruments = [
     osc.frequency.setValueAtTime(0, 0);
 
     osc.connect(bodyenveloppe);
-    bodyenveloppe.connect(sink);
     noiseenveloppe.connect(lopass);
-    lopass.connect(sink);
+    bodyenveloppe.connect(velocity);
+    lopass.connect(velocity);
+    velocity.connect(sink);
 
     var KICK_RELEASE = registerParameters(bodyrelease);
     var KICK_FREQUENCY = registerParameters(kickfreq);
     var NOISE_RELEASE = registerParameters(noiserelease);
     var NOISE_MIX = registerParameters(noisemix);
-    var LOPASS = registerParameters(lopass);
+    registerParameters(lopass.frequency);
 
     this.play = function(t, freq, vel) {
       var s = ac.createBufferSource();
       s.buffer = noiseBuffer();
       s.connect(noiseenveloppe);
       s.start();
-      lopass.frequency.value = getParameter(LOPASS);
-      release(t, bodyenveloppe.gain, vel, 0, getParameter(KICK_RELEASE) / 3);
+
+      velocity.gain.setValueAtTime(vel, t);
+      release(t, bodyenveloppe.gain, 1, 0, getParameter(KICK_RELEASE) / 3);
       release(t, noiseenveloppe.gain, getParameter(NOISE_MIX) * vel, 0, getParameter(NOISE_RELEASE));
       release(t, osc.frequency, getParameter(KICK_FREQUENCY) * 2, getParameter(KICK_FREQUENCY), 0.03);
     }
@@ -326,91 +378,136 @@ instruments = [
     osc.start();
   },
  function snare(sink) {
-   var noiserelease = {value: 0.0};
-   var bodyrelease = {value: 0.0};
-   var tonerelease = {value: 0.0};
-   var snarepitch = {value: 0.0};
-   var lowpass = {value: 0.0};
+  var noiserelease = {value: 0.0};
+  var bodyrelease = {value: 0.0};
+  var tonerelease = {value: 0.0};
+  var snarepitch = {value: 0.0};
+  var lowpass = {value: 0.0};
 
-   var lopass = ac.createBiquadFilter();
-   var osc1 = ac.createOscillator();
-   osc1.type = "triangle";
-   var osc2 = ac.createOscillator();
-   osc2.type = "triangle";
-   var osc3 = ac.createOscillator();
-   var osc4 = ac.createOscillator();
+  var lopass = ac.createBiquadFilter();
+  var osc1 = ac.createOscillator();
+  osc1.type = "triangle";
+  var osc2 = ac.createOscillator();
+  osc2.type = "triangle";
+  var osc3 = ac.createOscillator();
+  var osc4 = ac.createOscillator();
+  var velocity = ac.createGain();
 
-   var enveloppe = ac.createGain();
-   var enveloppeBody = ac.createGain();
+  var enveloppe = ac.createGain();
+  var enveloppeBody = ac.createGain();
 
-   var NOISE_RELEASE = registerParameters(noiserelease);
-   var BODY_RELEASE = registerParameters(bodyrelease);
-   var LOWPASS_CUTOFF = registerParameters(lowpass);
-   var SNARE_PITCH = registerParameters(snarepitch);
+  var NOISE_RELEASE = registerParameters(noiserelease);
+  var BODY_RELEASE = registerParameters(bodyrelease);
+  var LOWPASS_CUTOFF = registerParameters(lowpass);
+  var SNARE_PITCH = registerParameters(snarepitch);
 
-   enveloppe.gain.setValueAtTime(0, 0);
-   enveloppeBody.gain.setValueAtTime(0, 0);
+  enveloppe.gain.setValueAtTime(0, 0);
+  enveloppeBody.gain.setValueAtTime(0, 0);
 
-   osc1.connect(enveloppeBody);
-   osc2.connect(enveloppeBody);
-   osc3.connect(enveloppeBody);
-   osc4.connect(enveloppeBody);
+  osc1.connect(enveloppeBody);
+  osc2.connect(enveloppeBody);
+  osc3.connect(enveloppeBody);
+  osc4.connect(enveloppeBody);
 
-   osc1.frequency.value = 111 + 175;
-   osc2.frequency.value = 111 + 224;
-   osc3.frequency.value = 380;
-   osc4.frequency.value = 180;
+  osc1.frequency.value = 111 + 175;
+  osc2.frequency.value = 111 + 224;
+  osc3.frequency.value = 380;
+  osc4.frequency.value = 180;
 
-   enveloppeBody.connect(lopass);
-   enveloppe.connect(lopass);
-   lopass.connect(sink);
-   noisebuffer = noiseBuffer();
+  enveloppeBody.connect(lopass);
+  enveloppe.connect(lopass);
+  lopass.connect(velocity);
+  velocity.connect(sink);
+  noisebuffer = noiseBuffer();
 
-   this.play = function(t, freq, vel) {
+  this.play = function(t, freq, vel) {
     var noise = ac.createBufferSource();
     noise.buffer = noisebuffer;
     noise.connect(enveloppe);
     noise.start(0);
-    lopass.frequency.value = getParameter(LOWPASS_CUTOFF);
+    lopass.frequency.setValueAtTime(getParameter(LOWPASS_CUTOFF), t);
+
+    velocity.gain.setValueAtTime(vel, t);
 
     release(t, enveloppe.gain, vel, 0, getParameter(NOISE_RELEASE));
     release(t, enveloppeBody.gain, vel, 0, getParameter(BODY_RELEASE));
-   }
+  }
 
-   osc1.start();
-   osc2.start();
-   osc3.start();
-   osc4.start();
+  osc1.start();
+  osc2.start();
+  osc3.start();
+  osc4.start();
  },
  function hihat(sink) {
-  var rel = {value: 0.0};
+  var relhigh = {value: 0.0};
+  var relband = {value: 0.0};
   var cutoff = {value: 0.0};
+  var hipass= {value: 0.0};
 
-  var enveloppe = ac.createGain();
-  var hipass = ac.createBiquadFilter();
+  var enveloppehigh = ac.createGain();
+  var enveloppeband = ac.createGain();
+  var bandpass = ac.createBiquadFilter();
+  var highpass = ac.createBiquadFilter();
+  var velocity = ac.createGain();
 
-  enveloppe.gain.setValueAtTime(0, 0);
-  hipass.type = "highpass";
-  hipass.Q.value = 10;
+  var osc1 = ac.createOscillator();
+  var osc2 = ac.createOscillator();
+  var osc3 = ac.createOscillator();
+  var osc4 = ac.createOscillator();
+  var osc5 = ac.createOscillator();
+  var osc6 = ac.createOscillator();
+  osc1.type = osc2.type = osc3.type = osc4.type = osc5.type = osc6.type = "square";
 
-  var RELEASE = registerParameters(rel);
-  var CUTOFF = registerParameters(cutoff);
+  enveloppehigh.gain.setValueAtTime(0, 0);
+  enveloppeband.gain.setValueAtTime(0, 0);
+  bandpass.type = "bandpass";
+  highpass.type = "highpass";
 
-  enveloppe.connect(hipass);
-  hipass.connect(sink);
+  var RELHIGH= registerParameters(relhigh);
+  var RELBAND= registerParameters(relband);
+  var BANDPASS = registerParameters(bandpass);
+  var HIGHPASS = registerParameters(hipass);
+  registerParameters(osc1.frequency);
+  registerParameters(osc2.frequency);
+  registerParameters(osc3.frequency);
+  registerParameters(osc4.frequency);
+  registerParameters(osc5.frequency);
+  registerParameters(osc6.frequency);
+
+  osc1.connect(bandpass);
+  osc2.connect(bandpass);
+  osc3.connect(bandpass);
+  osc4.connect(bandpass);
+  osc5.connect(bandpass);
+  osc6.connect(bandpass);
+  osc1.connect(highpass);
+  osc2.connect(highpass);
+  osc3.connect(highpass);
+  osc4.connect(highpass);
+  osc5.connect(highpass);
+  osc6.connect(highpass);
+  highpass.connect(enveloppehigh);
+  bandpass.connect(enveloppeband);
+  enveloppehigh.connect(velocity)
+  enveloppeband.connect(velocity)
+  velocity.connect(sink)
+
 
   this.play = function(t, freq, vel) {
     // humanization
-    hipass.frequency.value = getParameter(CUTOFF) + (Math.random() - 0.5) * 1000;
-    // vel += (Math.random() - 0.5) * 0.1;
-
-    var noise = ac.createBufferSource();
-    noise.buffer = noisebuffer;
-    noise.connect(enveloppe);
-    noise.start(0);
-
-    release(t, enveloppe.gain, vel, 0, getParameter(RELEASE));
+    bandpass.frequency.value = getParameter(BANDPASS) + (Math.random() - 0.5) * 1000;
+    highpass.frequency.value = getParameter(HIGHPASS) + (Math.random() - 0.5) * 1000;
+    velocity.gain.setValueAtTime(vel, t);
+    // we divide by four to get some sort of reasonnable gain range
+    release(t, enveloppehigh.gain, vel / 4, 0, getParameter(RELHIGH));
+    release(t, enveloppeband.gain, vel / 4, 0, getParameter(RELBAND));
   }
+  osc1.start();
+  osc2.start();
+  osc3.start();
+  osc4.start();
+  osc5.start();
+  osc6.start();
  },
  function substractive(sink) {
   var q = {value: 0.0};
@@ -441,9 +538,9 @@ instruments = [
   enveloppe.gain.setValueAtTime(0, 0);
 
   this.play = function(t, freq, vel) {
-    osc1.frequency.value = freq;
-    osc2.frequency.value = freq;
-    osc2.detune.value = getParameter(DETUNE);
+    osc1.frequency.setValueAtTime(freq, t);
+    osc2.frequency.setValueAtTime(freq, t);
+    osc2.detune.setValueAtTime(getParameter(DETUNE), t);
 
     filter.Q.value = getParameter(Q);
 
@@ -533,7 +630,6 @@ tmpsnd = function() {
 
 
 function onmsg(e) {
-  //console.log(e.data);
   // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
   // touch
   // for a param change, tuple[2] is the new value
