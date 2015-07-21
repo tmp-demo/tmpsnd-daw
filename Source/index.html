@@ -150,7 +150,7 @@ var params = {
       "default": 300. 
     },
   },
-  "substractive": {
+  "subs": {
     "volume": {
       "min": 0.0,
       "max": 3.0,
@@ -192,6 +192,32 @@ var params = {
       "max": 1.,
       "step": 0.01,
       "default": 0.05
+    }
+  },
+  "clave": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 5230.3
+    },
+    "pitch": {
+      "min": 20,
+      "max": 3000,
+      "step": 0.1,
+      "default": 2590.3,
+    },
+    "release": {
+      "min": 0.001,
+      "max": 1.,
+      "step": 0.01,
+      "default": 0.02
     }
   },
   "sends": {
@@ -261,8 +287,8 @@ var params = {
 };
 // map params to integers
 // var ws = new WebSocket("ws://localhost:7681", "tmpsnd");
-// var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
-var ws = new WebSocket("ws://10.243.29.98:7681", "tmpsnd");
+var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
+// var ws = new WebSocket("ws://10.243.29.98:7681", "tmpsnd");
 ws.onopen = function(e) {
   console.log(JSON.stringify(params));
   ws.send(JSON.stringify(params));
@@ -557,6 +583,37 @@ instruments = [
 
   osc1.start();
   osc2.start();
+ },
+ function clave(sink) {
+   var rel = { value: 0.0 };
+   var osc = ac.createOscillator();
+   osc.type = "triangle";
+
+   var velocity = ac.createGain();
+   var enveloppe = ac.createGain();
+
+   var filter = ac.createBiquadFilter();
+   filter.type = "bandpass";
+
+   registerParameters(filter.frequency);
+   registerParameters(osc.frequency);
+   var CLAVE_RELEASE = registerParameters(rel);
+
+   osc.frequency.setValueAtTime(0, 0);
+   filter.frequency.setValueAtTime(0, 0);
+   velocity.gain.setValueAtTime(0, 0);
+   enveloppe.gain.setValueAtTime(0, 0);
+
+   osc.connect(enveloppe);
+   enveloppe.connect(velocity);
+   velocity.connect(filter);
+   filter.connect(sink);
+
+   this.play = function(t, freq, vel) {
+     velocity.gain.setValueAtTime(vel, t);
+     release(t, enveloppe.gain, 1, 0, getParameter(CLAVE_RELEASE));
+   }
+   osc.start();
  }
 ]
 
@@ -635,10 +692,17 @@ function onmsg(e) {
   // for a param change, tuple[2] is the new value
   // for a note trigger, tuple[2] is the note, tuple[3] is the velocity
   var tuple = e.data.split(",").map(Number);
+  console.log(e.data);
 
+  // snare
   if (tuple[1] == 1 && tuple[2] == 38) {
     tuple[1] = 2;
   }
+  //clave
+  if (tuple[1] == 1 && tuple[2] == 39) {
+    tuple[1] = 4;
+  }
+  // hihat
   if (tuple[1] == 1 && tuple[2] == 40) {
     tuple[1] = 3;
   }

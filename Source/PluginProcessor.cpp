@@ -202,6 +202,7 @@ int TmpSndDawAudioProcessor::getNumParameters()
 
 float TmpSndDawAudioProcessor::getParameter (int aIndex)
 {
+  ScopedLock lock(mLock);
   if (aIndex > mParameters.size() - 1) {
 	return 0.0f;
   }
@@ -210,19 +211,19 @@ float TmpSndDawAudioProcessor::getParameter (int aIndex)
 
 void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue, bool aFromDaw)
 {
+  ScopedLock lock(mLock);
   if (aIndex > mParameters.size() - 1) {
 	return;
   }
   // The DAW sends param that are in [0,1], rescale to the right domain
   if (aFromDaw) {
 	  mParameters[aIndex]->mValue = aValue * (mParameters[aIndex]->mMax - mParameters[aIndex]->mMin) + mParameters[aIndex]->mMin;
-  }
-  else {
+  } else {
 	  mParameters[aIndex]->mValue = aValue;
   }
   mParameterChanged.set(aIndex, true);
   // Only update the UI if this call was from the DAW, otherwise, the UI is already up-to-date
-  if (aFromDaw) {
+  if (aFromDaw && mEditor) {
 	mEditor->setParameter(aIndex, mParameters[aIndex]->mValue);
   }
 }
@@ -230,6 +231,7 @@ void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue, bool aFrom
 
 const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
 {
+  ScopedLock lock(mLock);
   if (aIndex > mParameters.size() - 1) {
     return String("---");
   }
@@ -239,6 +241,7 @@ const String TmpSndDawAudioProcessor::getParameterName (int aIndex)
 
 const String TmpSndDawAudioProcessor::getParameterText (int aIndex)
 {
+	ScopedLock lock(mLock);
 	if (aIndex > mParameters.size() - 1) {
 		return String("---");
 	}
@@ -429,6 +432,7 @@ void TmpSndDawAudioProcessor::setStateInformation (const void* data, int sizeInB
 bool TmpSndDawAudioProcessor::deserializeParams(const void* aData, size_t aSize)
 {
   var res;
+  ScopedLock lock(mLock);
   String str(CharPointer_UTF8(static_cast<const char*>(aData)), aSize);
   if (aSize == 0) {
     return false;
