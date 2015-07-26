@@ -159,7 +159,7 @@ void WebSocketServer::run()
 #endif
 }
 
-void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
+bool WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
 {
   memcpy(&mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], aBuffer, aLength);
   if (mWebSocketInstance) {
@@ -167,9 +167,10 @@ void WebSocketServer::Write(const char* aBuffer, uint32_t aLength)
     uint32_t n = libwebsocket_write(mWebSocketInstance, &mSessionData.buf[LWS_SEND_BUFFER_PRE_PADDING], aLength, LWS_WRITE_TEXT);
     if (n == -1) {
       mProcessor->setState(TmpSndDawAudioProcessor::WAITING_FOR_PARAMS);
-      return;
+      return false;
     }
   }
+  return true;
 }
 
 
@@ -185,7 +186,8 @@ TmpSndDawAudioProcessor::TmpSndDawAudioProcessor()
 }
 
 TmpSndDawAudioProcessor::~TmpSndDawAudioProcessor()
-{
+{ 
+  ScopedLock lock(mLock);
   delete mWebSocket;
   mLog->flush();
 }
@@ -223,8 +225,15 @@ void TmpSndDawAudioProcessor::setParameter (int aIndex, float aValue, bool aFrom
   }
   mParameterChanged.set(aIndex, true);
   // Only update the UI if this call was from the DAW, otherwise, the UI is already up-to-date
-  if (aFromDaw && mEditor) {
-	mEditor->setParameter(aIndex, mParameters[aIndex]->mValue);
+  if (aFromDaw) {
+	  MessageManager::callAsync([=] {
+		  ScopedLock lock(mLock);
+		  if (mEditor) {
+			  if (aIndex < mParameters.size()) {
+				  mEditor->setParameter(aIndex, mParameters[aIndex]->mValue);
+			  }
+		  }
+	  });
   }
 }
 
@@ -346,6 +355,7 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
     delete mWebSocket;
     mWebSocket = new WebSocketServer(this);
     mNeedResetWebSocketServer = false;
+	return;
   }
 
 
@@ -355,7 +365,11 @@ void TmpSndDawAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
   for (uint32_t i = 0; i < mParameterChanged.size(); i++) {
     if (mParameterChanged[i]) {
       buf = mProtocol.ParameterChange(0 /* now */, i, mParameters[i]->mValue);
-      mWebSocket->Write(buf.mData, buf.mLength);
+      bool success = mWebSocket->Write(buf.mData, buf.mLength);
+	  // client disconnected, bail out.
+	  if (!success) {
+		  return;
+	  }
 	  buf = mProtocol.ParameterChange(transportTime, i, mParameters[i]->mValue);
 	  mLog->writeText(String::formatted("%f,%d,%f\n", (float)transportTime, i, mParameters[i]->mValue), false, false);
       mParameterChanged.set(i, false);
@@ -412,6 +426,7 @@ bool TmpSndDawAudioProcessor::hasEditor() const
 
 AudioProcessorEditor* TmpSndDawAudioProcessor::createEditor()
 {
+	ScopedLock lock(mLock);
   mEditor = new TmpSndDawAudioProcessorEditor(this);
   return mEditor;
 }
@@ -675,11 +690,12 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
       if (rv) {
         mState = PROCESSING;
       }
-      if (mEditor) {
-        MessageManager::callAsync([=] {
+      MessageManager::callAsync([=] {
+		  ScopedLock lock(mLock);
+		if (mEditor) {
           mEditor->Initialize();
-        });
-      }
+		}
+      });
       break;
     }
     case PROCESSING:
@@ -692,6 +708,7 @@ void TmpSndDawAudioProcessor::onReceivedData(const void* aData, size_t aSize)
 
 void TmpSndDawAudioProcessor::OnEditorClose()
 {
+	ScopedLock lock(mLock);
   mEditor = nullptr;
 }
 

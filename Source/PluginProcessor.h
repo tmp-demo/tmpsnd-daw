@@ -25,7 +25,7 @@ public:
     unsigned int index;
   };
 
-  void Write(const char* aBuffer, uint32_t aLength);
+  bool Write(const char* aBuffer, uint32_t aLength);
 
   static int
   S_Callback(struct libwebsocket_context *context,

@@ -208,7 +208,7 @@ void TmpSndDawAudioProcessorEditor::resized()
 
 void TmpSndDawAudioProcessorEditor::setParameter(uint32_t aIndex, float aValue)
 {
-	if (aIndex > mSliders.size()) {
-		mSliders[aIndex]->setValue(aValue);	
+	if (aIndex < mSliders.size()) {
+	  mSliders[aIndex]->setValue(aValue);	
 	}
 }
