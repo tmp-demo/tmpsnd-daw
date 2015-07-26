@@ -1,0 +1,410 @@
+<script src=engine.js></script>
+<script>
+var ac = new AudioContext();
+
+function assert(predicat, msg) {
+  if (!predicat) {
+    throw msg;
+  }
+}
+
+var params = {
+  "kick": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "release": {
+      "min": 0.0,
+      "max": 10.0,
+      "step": 0.001,
+      "default": 0.26 
+    },
+    "pitch": {
+      "min": 30.,
+      "max": 300.,
+      "step": 1,
+      "default": 45.
+    },
+    "noise release": {
+      "min": 0.0001,
+      "max": 0.03,
+      "step": 0.001,
+      "default": 0.017
+    },
+    "noise gain": {
+      "min": 0.0,
+      "max": 10.0,
+      "step": 0.01,
+      "default": 3.2
+    },
+    "lowpass": {
+      "min": 20.0,
+      "max": 20000.0,
+      "step": 1,
+      "default": 16000. 
+    },
+  },
+  "snare": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "noise release": {
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.01,
+      "default": 0.03
+    },
+    "body release": {
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.01,
+      "default": 0.02
+    },
+    "lowpass": {
+      "min": 50.0,
+      "max": 10000.0,
+      "step": 1,
+      "default": 2300.
+    },
+    "pitch": {
+      "min": 200.,
+      "max": 1000.,
+      "step": 1.,
+      "default": 284.
+    }
+  },
+  "hihat": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 2.6
+    },
+    "release hipass": {
+      "min": 0.0,
+      "max": 0.3,
+      "step": 0.01,
+      "default": 0.02
+    },
+    "release bandpass": {
+      "min": 0.0,
+      "max": 0.3,
+      "step": 0.01,
+      "default": 0.02
+    },
+    "bandpass freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 11800. 
+    },
+    "highpass freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 7300. 
+    },
+    "osc1 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 50. 
+    },
+    "osc2 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 100. 
+    },
+    "osc3 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 150. 
+    },
+    "osc4 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 200
+    },
+    "osc5 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 250. 
+    },
+    "osc6 freq": {
+      "min": 0.0,
+      "max": 20000.,
+      "step": 1,
+      "default": 300. 
+    },
+  },
+  "subs": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "cutoff": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 10000. 
+    },
+    "Q": {
+      "min": 0.0,
+      "max": 80.,
+      "step": 0.1,
+      "default": 15. 
+    },
+    "detune": {
+      "min": -1200.0,
+      "max": +1200.0,
+      "step": 1.,
+      "default": -1200. 
+    },
+    "filter attack": {
+      "min": 0.01,
+      "max": 0.5,
+      "step": 0.01,
+      "default": 0.01
+    },
+    "attack": {
+      "min": 0.0,
+      "max": 1.,
+      "step": 0.01,
+      "default": 0.01
+    },
+    "release": {
+      "min": 0.001,
+      "max": 1.,
+      "step": 0.01,
+      "default": 0.05
+    }
+  },
+  "clave": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 5230.3
+    },
+    "pitch": {
+      "min": 20,
+      "max": 3000,
+      "step": 0.1,
+      "default": 2590.3,
+    },
+    "release": {
+      "min": 0.001,
+      "max": 1.,
+      "step": 0.01,
+      "default": 0.02
+    }
+  },
+  "cowbell": {
+    "volume": {
+      "min": 0.0,
+      "max": 3.0,
+      "step": 0.01,
+      "default": 1 
+    },
+    "freq": {
+      "min": 0.0,
+      "max": 15000.,
+      "step": 0.1,
+      "default": 5230.3
+    },
+    "pitch 1": {
+      "min": 20,
+      "max": 3000,
+      "step": 0.1,
+      "default": 587.,
+    },
+    "pitch 2": {
+      "min": 20,
+      "max": 3000,
+      "step": 0.1,
+      "default": 845.,
+    },
+    "release": {
+      "min": 0.001,
+      "max": 1.,
+      "step": 0.01,
+      "default": 0.02
+    }
+  },
+  "sends": {
+    "delay": {
+      "feedback": {
+        "min": 0.0,
+        "max": 1.50,
+        "step": 0.01,
+        "default":0.30
+      },
+      "time": {
+        "min": 0.0,
+        "max": 3.0,
+        "step": 0.01,
+        "default":0.33
+      }
+    },
+    "reverb": {
+      "length": {
+        "min": 0.0,
+        "max": 50.,
+        "step": 0.1,
+        "default":1.
+      },
+      "decay": {
+        "min": 0.0,
+        "max": 20.,
+        "step": 0.1,
+        "default":5.
+      }
+    },
+  },
+  "master": {
+    "compression": {
+      "threshold": {
+        "min": -48.,
+        "max": 0.,
+        "step": 0.1,
+        "default": -12.
+      },
+      "knee": {
+        "min": 0.0,
+        "max": 40.,
+        "step": 0.1,
+        "default":30.
+      },
+      "ratio": {
+        "min": 0.0,
+        "max": 40.,
+        "step": 0.1,
+        "default":4.
+      },
+      "attack": {
+        "min": 0.0,
+        "max": 1.,
+        "step": 0.001,
+        "default":0.003
+      },
+      "release": {
+        "min": 0.0,
+        "max": 1.,
+        "step": 0.01,
+        "default":0.25
+      }
+    }
+  }
+};
+
+function onmsg(e) {
+  // in any case, tuple[0] is the time, tuple[1] is the index of the thing to
+  // touch
+  // for a param change, tuple[2] is the new value
+  // for a note trigger, tuple[2] is the note, tuple[3] is the velocity
+  var tuple = e.data.split(",").map(Number);
+
+  tuple[0] = ac.currentTime;
+
+  // snare
+  if (tuple[1] == 1 && tuple[2] == 38) {
+    tuple[1] = 2;
+  }
+  //clave
+  if (tuple[1] == 1 && tuple[2] == 39) {
+    tuple[1] = 5;
+  }
+  //cowbell
+  if (tuple[1] == 1 && tuple[2] == 42) {
+    tuple[1] = 6;
+  }
+  // hihat
+  if (tuple[1] == 1 && tuple[2] == 40) {
+    tuple[1] = 3;
+  }
+  switch (tuple.length) {
+    case 3: // parameter change
+      s.setParameter(tuple);
+      break;
+    case 4: // note trigger
+      s.trigger(tuple);
+      break;
+    case 2: //note off
+      s.stop(tuple);
+      break;
+    default:
+      throw "weird message";
+  }
+}
+
+
+window.onload = function() {
+  ac = new AudioContext();
+  s = tmpsnd(ac);
+  var analyser = ac.createAnalyser();
+  s.master.connect(analyser);
+  var cvs = document.querySelector("canvas");
+  var w = cvs.width = window.innerWidth;
+  var h = cvs.height = window.innerHeight;
+
+
+  // map params to integers
+  var ws = new WebSocket("ws://127.0.0.1:7681", "tmpsnd");
+  ws.onopen = function(e) {
+    ws.send(JSON.stringify(params));
+  }
+  ws.onmessage = onmsg;
+
+  analyser.fftSize = 2048;
+
+  var fftarray = new Float32Array(analyser.frequencyBinCount);
+  var timearray = new Float32Array(analyser.frequencyBinCount);
+
+  var binwidth = Math.ceil(w / analyser.frequencyBinCount) / 2;
+
+  var c = cvs.getContext("2d");
+
+  function render() {
+    c.clearRect(0, 0, w, h);
+    analyser.getFloatFrequencyData(fftarray);
+    analyser.getFloatTimeDomainData(timearray);
+    var offset = 0;
+    c.beginPath();
+    c.lineWidth = 3;
+    c.strokeStyle = "rgb(100, 100, 100)";
+    c.moveTo(0, h/2);
+    for (var i = 0; i < fftarray.length; i++) {
+      var normalized = (fftarray[i] - analyser.minDecibels) / -(analyser.minDecibels + analyser.maxDecibels);
+      c.fillRect(offset, h - normalized * h, binwidth, normalized * h);
+      c.lineTo(offset, h/2 + timearray[i] * 100);
+      offset += binwidth * 1.5;
+    }
+    var reduction = comp.reduction instanceof AudioParam ? comp.reduction.value : comp.reduction;
+    c.fillRect(w - 100, h, w, reduction * 40);
+    c.stroke();
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+}
+
+
+</script>
+<canvas></canvas>

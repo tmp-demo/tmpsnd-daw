@@ -1,0 +1,54 @@
+<script src=engine.js></script>
+<script>
+  var request = new XMLHttpRequest();
+  request.onload = function() {
+    run(request.responseText);
+  }
+  request.open("GET", "score.txt");
+  request.send(null);
+  function run(text) {
+    var tuples = [];
+    var tuple = text.split("\n").forEach(function(e, i) {
+      if (e.length == 0) return;
+      tuples[i] = e.split(",").map(Number);
+    });
+    // reconstruct timing
+    var ct = 0;
+    for (var i = 1; i < tuples.length; i++) {
+      ct += tuples[i][0];
+      tuples[i][0] = ct;
+    }
+
+    var length_seconds = tuples[tuples.length - 1][0] + 10;
+    var ac = new OfflineAudioContext(2, 44100 * length_seconds, 44100);
+
+    var s = tmpsnd(ac);
+
+    for (var i = 0; i < tuples.length; i++) {
+      var tuple = tuples[i];
+      switch (tuple.length) {
+        case 3: // parameter change
+          s.setParameter(tuple);
+          break;
+        case 4: // note trigger
+          s.trigger(tuple);
+          break;
+        case 2: //note off
+          s.stop(tuple);
+          break;
+        default:
+          throw "weird message";
+      }
+    }
+
+    var start = Date.now();
+    ac.startRendering().then(function(buf) {
+      var ac = new AudioContext();
+      var b = ac.createBufferSource();
+      b.buffer = buf;
+      b.connect(ac.destination);
+      b.start(0);
+      console.log(Date.now() - start);
+    });
+  }
+</script>
