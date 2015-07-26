@@ -70,17 +70,20 @@ tmpsnd = function(ac) {
 
   instruments = [
     function kick(sink) {
-      var bodyrelease = {value : 0.0};
-      var noiserelease = {value : 0.0};
-      var noisemix = {value : 0.0};
-      var kickfreq = {value : 0.0};
-      var lopass = {value: 0.0};
 
-      var osc = ac.createOscillator();
-      var velocity = ac.createGain();
-      var bodyenveloppe = ac.createGain();
-      var noiseenveloppe = ac.createGain();
-      var lopass = ac.createBiquadFilter();
+      var oc = new OfflineAudioContext(1, 44100, 44100);
+
+      var bodyrelease = {value : 0.26};
+      var noiserelease = {value : 0.03};
+      var noisemix = {value : 3.2};
+      var kickfreq = {value : 45.0};
+      var lopass = {value: 16000.0};
+
+      var osc = oc.createOscillator();
+      var velocity = oc.createGain();
+      var bodyenveloppe = oc.createGain();
+      var noiseenveloppe = oc.createGain();
+      var lopass = oc.createBiquadFilter();
 
       bodyenveloppe.gain.setValueAtTime(0, 0);
       noiseenveloppe.gain.setValueAtTime(0, 0);
@@ -89,8 +92,12 @@ tmpsnd = function(ac) {
       osc.connect(bodyenveloppe);
       noiseenveloppe.connect(lopass);
       bodyenveloppe.connect(velocity);
-      lopass.connect(velocity);
-      velocity.connect(sink);
+      lopass.connect(oc.destination);
+
+      var s = oc.createBufferSource();
+      s.buffer = noiseBuffer();
+      s.connect(noiseenveloppe);
+      s.start(0);
 
       var KICK_RELEASE = registerParameters(bodyrelease);
       var KICK_FREQUENCY = registerParameters(kickfreq);
@@ -98,38 +105,46 @@ tmpsnd = function(ac) {
       var NOISE_MIX = registerParameters(noisemix);
       registerParameters(lopass.frequency);
 
+      release(0, bodyenveloppe.gain, 1, 0, getParameter(KICK_RELEASE) / 3);
+      release(0, noiseenveloppe.gain, getParameter(NOISE_MIX) * 1.0, 0, getParameter(NOISE_RELEASE));
+      release(0, osc.frequency, getParameter(KICK_FREQUENCY) * 2, getParameter(KICK_FREQUENCY), 0.03);
+      osc.start(0);
+
+
+      var outbuffer;
+      oc.startRendering().then(function(buf) {
+         outbuffer = buf;
+      })
+
       this.play = function(t, freq, vel) {
-        var s = ac.createBufferSource();
-        s.buffer = noiseBuffer();
-        s.connect(noiseenveloppe);
-        s.start();
-
-        velocity.gain.setValueAtTime(vel, t);
-        release(t, bodyenveloppe.gain, 1, 0, getParameter(KICK_RELEASE) / 3);
-        release(t, noiseenveloppe.gain, getParameter(NOISE_MIX) * vel, 0, getParameter(NOISE_RELEASE));
-        release(t, osc.frequency, getParameter(KICK_FREQUENCY) * 2, getParameter(KICK_FREQUENCY), 0.03);
+        var b = ac.createBufferSource();
+        var velo = ac.createGain();
+        velo.gain.value = vel;
+        b.buffer = outbuffer;
+        b.start(t);
+        b.connect(velo);
+        velo.connect(sink);
       }
-
-      osc.start();
     },
    function snare(sink) {
-     var noiserelease = {value: 0.0};
-     var bodyrelease = {value: 0.0};
-     var tonerelease = {value: 0.0};
+     var noiserelease = {value: 0.03};
+     var bodyrelease = {value: 0.02};
      var snarepitch = {value: 0.0};
-     var lowpass = {value: 0.0};
+     var lowpass = {value: 2300.0};
 
-     var lopass = ac.createBiquadFilter();
-     var osc1 = ac.createOscillator();
+     var oc = new OfflineAudioContext(1, 44100, 44100);
+
+     var lopass = oc.createBiquadFilter();
+     var osc1 = oc.createOscillator();
      osc1.type = "triangle";
-     var osc2 = ac.createOscillator();
+     var osc2 = oc.createOscillator();
      osc2.type = "triangle";
-     var osc3 = ac.createOscillator();
-     var osc4 = ac.createOscillator();
-     var velocity = ac.createGain();
+     var osc3 = oc.createOscillator();
+     var osc4 = oc.createOscillator();
+     var velocity = oc.createGain();
 
-     var enveloppe = ac.createGain();
-     var enveloppeBody = ac.createGain();
+     var enveloppe = oc.createGain();
+     var enveloppeBody = oc.createGain();
 
      var NOISE_RELEASE = registerParameters(noiserelease);
      var BODY_RELEASE = registerParameters(bodyrelease);
@@ -152,45 +167,61 @@ tmpsnd = function(ac) {
      enveloppeBody.connect(lopass);
      enveloppe.connect(lopass);
      lopass.connect(velocity);
-     velocity.connect(sink);
+     velocity.connect(oc.destination);
      noisebuffer = noiseBuffer();
 
-     this.play = function(t, freq, vel) {
-       var noise = ac.createBufferSource();
-       noise.buffer = noisebuffer;
-       noise.connect(enveloppe);
-       noise.start(0);
-       lopass.frequency.setValueAtTime(getParameter(LOWPASS_CUTOFF), t);
+     var noise = oc.createBufferSource();
+     noise.buffer = noisebuffer;
+     noise.connect(enveloppe);
+     noise.start(0);
+     lopass.frequency.setValueAtTime(getParameter(LOWPASS_CUTOFF), 0);
 
-       velocity.gain.setValueAtTime(vel, t);
+     velocity.gain.setValueAtTime(1.0, 0);
 
-       release(t, enveloppe.gain, vel, 0, getParameter(NOISE_RELEASE));
-       release(t, enveloppeBody.gain, vel, 0, getParameter(BODY_RELEASE));
-     }
+     release(0, enveloppe.gain, 1, 0, getParameter(NOISE_RELEASE));
+     release(0, enveloppeBody.gain, 1, 0, getParameter(BODY_RELEASE));
 
-     osc1.start();
-     osc2.start();
-     osc3.start();
-     osc4.start();
+     osc1.start(0);
+     osc2.start(0);
+     osc3.start(0);
+     osc4.start(0);
+
+      var outbuffer;
+      oc.startRendering().then(function(buf) {
+         outbuffer = buf;
+      });
+
+      this.play = function(t, freq, vel) {
+        var b = ac.createBufferSource();
+        var velo = ac.createGain();
+        velo.gain.value = vel;
+        b.buffer = outbuffer;
+        b.start(t);
+        b.connect(velo);
+        velo.connect(sink);
+      }
+
    },
    function hihat(sink) {
-     var relhigh = {value: 0.0};
-     var relband = {value: 0.0};
-     var cutoff = {value: 0.0};
-     var hipass= {value: 0.0};
+     var relhigh = {value: 0.02};
+     var relband = {value: 0.01};
+     var cutoff = {value: 11800};
+     var hipass= {value: 7300};
 
-     var enveloppehigh = ac.createGain();
-     var enveloppeband = ac.createGain();
-     var bandpass = ac.createBiquadFilter();
-     var highpass = ac.createBiquadFilter();
-     var velocity = ac.createGain();
+     var oc = new OfflineAudioContext(1, 44100, 44100);
 
-     var osc1 = ac.createOscillator();
-     var osc2 = ac.createOscillator();
-     var osc3 = ac.createOscillator();
-     var osc4 = ac.createOscillator();
-     var osc5 = ac.createOscillator();
-     var osc6 = ac.createOscillator();
+     var enveloppehigh = oc.createGain();
+     var enveloppeband = oc.createGain();
+     var bandpass = oc.createBiquadFilter();
+     var highpass = oc.createBiquadFilter();
+     var velocity = oc.createGain();
+
+     var osc1 = oc.createOscillator();
+     var osc2 = oc.createOscillator();
+     var osc3 = oc.createOscillator();
+     var osc4 = oc.createOscillator();
+     var osc5 = oc.createOscillator();
+     var osc6 = oc.createOscillator();
      osc1.type = osc2.type = osc3.type = osc4.type = osc5.type = osc6.type = "square";
 
      enveloppehigh.gain.setValueAtTime(0, 0);
@@ -200,14 +231,22 @@ tmpsnd = function(ac) {
 
      var RELHIGH= registerParameters(relhigh);
      var RELBAND= registerParameters(relband);
+     bandpass.frequency.value=11800;
+     highpass.frequency.value=7300;
      registerParameters(bandpass.frequency);
      registerParameters(highpass.frequency);
-     registerParameters(osc1.frequency);
-     registerParameters(osc2.frequency);
-     registerParameters(osc3.frequency);
-     registerParameters(osc4.frequency);
-     registerParameters(osc5.frequency);
-     registerParameters(osc6.frequency);
+     osc1.frequency.value = 50;
+     osc2.frequency.value = 100;
+     osc3.frequency.value = 150;
+     osc4.frequency.value = 200;
+     osc5.frequency.value = 250;
+     osc6.frequency.value = 300;
+     registerParameters(osc1);
+     registerParameters(osc2);
+     registerParameters(osc3);
+     registerParameters(osc4);
+     registerParameters(osc5);
+     registerParameters(osc6);
 
      osc1.connect(bandpass);
      osc2.connect(bandpass);
@@ -224,22 +263,34 @@ tmpsnd = function(ac) {
      highpass.connect(enveloppehigh);
      bandpass.connect(enveloppeband);
      enveloppehigh.connect(velocity)
-       enveloppeband.connect(velocity)
-       velocity.connect(sink)
+     enveloppeband.connect(velocity)
+     velocity.connect(oc.destination);
 
+     velocity.gain.setValueAtTime(1, 0);
+     release(0, enveloppehigh.gain, 0.1, 0, getParameter(RELHIGH));
+     release(0, enveloppeband.gain, 0.1, 0, getParameter(RELBAND));
 
-       this.play = function(t, freq, vel) {
-         velocity.gain.setValueAtTime(vel, t);
-         // we divide by four to get some sort of reasonnable gain range
-         release(t, enveloppehigh.gain, vel / 4, 0, getParameter(RELHIGH));
-         release(t, enveloppeband.gain, vel / 4, 0, getParameter(RELBAND));
-       }
      osc1.start();
      osc2.start();
      osc3.start();
      osc4.start();
      osc5.start();
      osc6.start();
+
+      var outbuffer;
+      oc.startRendering().then(function(buf) {
+         outbuffer = buf;
+      });
+
+      this.play = function(t, freq, vel) {
+        var b = ac.createBufferSource();
+        var velo = ac.createGain();
+        velo.gain.value = vel;
+        b.buffer = outbuffer;
+        b.start(t);
+        b.connect(velo);
+        velo.connect(sink);
+      }
    },
    function substractive(sink) {
      var q = {value: 0.0};
