@@ -400,7 +400,7 @@ tmpsnd = function(ac) {
    volume.connect(send_delay);
    volume.connect(send_reverb);
    send_delay.gain.setValueAtTime(0,0);
-   send_reverb.gain.setValueAtTime(0,0);
+   send_reverb.gain.setValueAtTime(1,0);
    send_delay.connect(delay);
    send_reverb.connect(reverb);
    registerParameters(send_delay.gain);
