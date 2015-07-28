@@ -22,33 +22,33 @@
     var length_seconds = tuples[tuples.length - 1][0] + 10;
     var ac = new OfflineAudioContext(2, 44100 * length_seconds, 44100);
 
-    var s = tmpsnd(ac);
-
-    for (var i = 0; i < tuples.length; i++) {
-      var tuple = tuples[i];
-      switch (tuple.length) {
-        case 3: // parameter change
-          s.setParameter(tuple);
-          break;
-        case 4: // note trigger
-          s.trigger(tuple);
-          break;
-        case 2: //note off
-          s.stop(tuple);
-          break;
-        default:
-          throw "weird message";
+    var s = tmpsnd(ac, function() {
+      var start = Date.now();
+      for (var i = 0; i < tuples.length; i++) {
+        var tuple = tuples[i];
+        switch (tuple.length) {
+          case 3: // parameter change
+            s.setParameter(tuple);
+            break;
+          case 4: // note trigger
+            s.trigger(tuple);
+            break;
+          case 2: //note off
+            s.stop(tuple);
+            break;
+          default:
+            throw "weird message";
+        }
       }
-    }
-
-    var start = Date.now();
-    ac.startRendering().then(function(buf) {
-      var ac = new AudioContext();
-      var b = ac.createBufferSource();
-      b.buffer = buf;
-      b.connect(ac.destination);
-      b.start(0);
-      console.log(Date.now() - start);
+      ac.startRendering().then(function(buf) {
+        var ac = new AudioContext();
+        var b = ac.createBufferSource();
+        b.buffer = buf;
+        b.connect(ac.destination);
+        b.start(0);
+        console.log(Date.now() - start);
+      });
     });
+
   }
 </script>

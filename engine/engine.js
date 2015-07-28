@@ -1,4 +1,4 @@
-tmpsnd = function(ac) {
+tmpsnd = function(ac, cb) {
   // midi note to frequency
   function n2f(n) {
     return Math.pow(2, (n - 69) / 12) * 440;
@@ -69,14 +69,14 @@ tmpsnd = function(ac) {
   }
 
   instruments = [
-    function kick(sink) {
+    function kick(sink, cb) {
 
       var oc = new OfflineAudioContext(1, 44100, 44100);
 
-      var bodyrelease = {value : 0.26};
-      var noiserelease = {value : 0.03};
-      var noisemix = {value : 3.2};
-      var kickfreq = {value : 45.0};
+      var bodyrelease = {value : 0.09};
+      var noiserelease = {value : 0.07};
+      var noisemix = {value : 0.8};
+      var kickfreq = {value : 150.0};
       var lopass = {value: 16000.0};
 
       var osc = oc.createOscillator();
@@ -90,8 +90,8 @@ tmpsnd = function(ac) {
       osc.frequency.setValueAtTime(0, 0);
 
       osc.connect(bodyenveloppe);
+      bodyenveloppe.connect(lopass);
       noiseenveloppe.connect(lopass);
-      bodyenveloppe.connect(velocity);
       lopass.connect(oc.destination);
 
       var s = oc.createBufferSource();
@@ -105,32 +105,34 @@ tmpsnd = function(ac) {
       var NOISE_MIX = registerParameters(noisemix);
       registerParameters(lopass.frequency);
 
-      release(0, bodyenveloppe.gain, 1, 0, getParameter(KICK_RELEASE) / 3);
-      release(0, noiseenveloppe.gain, getParameter(NOISE_MIX) * 1.0, 0, getParameter(NOISE_RELEASE));
-      release(0, osc.frequency, getParameter(KICK_FREQUENCY) * 2, getParameter(KICK_FREQUENCY), 0.03);
+      release(0, bodyenveloppe.gain, 1, 0, getParameter(KICK_RELEASE));
+      release(0, noiseenveloppe.gain, getParameter(NOISE_MIX), 0, getParameter(NOISE_RELEASE));
+      release(0, osc.frequency, getParameter(KICK_FREQUENCY), getParameter(KICK_FREQUENCY) * 0.3, 0.01);
       osc.start(0);
 
 
-      var outbuffer;
+      var self = this;
       oc.startRendering().then(function(buf) {
-         outbuffer = buf;
+         self.outbuffer = buf;
+         cb();
+         console.log("finished kick");
       })
 
       this.play = function(t, freq, vel) {
         var b = ac.createBufferSource();
         var velo = ac.createGain();
-        velo.gain.value = vel;
-        b.buffer = outbuffer;
+        velo.gain.value = vel * 3;
+        b.buffer = this.outbuffer;
         b.start(t);
         b.connect(velo);
         velo.connect(sink);
       }
     },
-   function snare(sink) {
-     var noiserelease = {value: 0.03};
+   function snare(sink, cb) {
+     var noiserelease = {value: 0.05};
      var bodyrelease = {value: 0.02};
      var snarepitch = {value: 0.0};
-     var lowpass = {value: 2300.0};
+     var lowpass = {value: 4300.0};
 
      var oc = new OfflineAudioContext(1, 44100, 44100);
 
@@ -186,27 +188,29 @@ tmpsnd = function(ac) {
      osc3.start(0);
      osc4.start(0);
 
-      var outbuffer;
+     var self =this;
       oc.startRendering().then(function(buf) {
-         outbuffer = buf;
+         self.outbuffer = buf;
+         cb();
+         console.log("finished snare");
       });
 
       this.play = function(t, freq, vel) {
         var b = ac.createBufferSource();
         var velo = ac.createGain();
         velo.gain.value = vel;
-        b.buffer = outbuffer;
+        b.buffer = this.outbuffer;
         b.start(t);
         b.connect(velo);
         velo.connect(sink);
       }
 
    },
-   function hihat(sink) {
-     var relhigh = {value: 0.02};
-     var relband = {value: 0.01};
-     var cutoff = {value: 11800};
-     var hipass= {value: 7300};
+   function hihat(sink, cb) {
+     var relband = {value: 0.02};
+     var relhigh = {value: 0.01};
+     var cutoff = {value: 6000};
+     var hipass= {value: 9300};
 
      var oc = new OfflineAudioContext(1, 44100, 44100);
 
@@ -267,8 +271,8 @@ tmpsnd = function(ac) {
      velocity.connect(oc.destination);
 
      velocity.gain.setValueAtTime(1, 0);
-     release(0, enveloppehigh.gain, 0.1, 0, getParameter(RELHIGH));
-     release(0, enveloppeband.gain, 0.1, 0, getParameter(RELBAND));
+     release(0, enveloppehigh.gain, 0.4, 0, getParameter(RELHIGH));
+     release(0, enveloppeband.gain, 0.4, 0, getParameter(RELBAND));
 
      osc1.start();
      osc2.start();
@@ -277,16 +281,18 @@ tmpsnd = function(ac) {
      osc5.start();
      osc6.start();
 
-      var outbuffer;
+     var self = this;
       oc.startRendering().then(function(buf) {
-         outbuffer = buf;
+         self.outbuffer = buf;
+         cb();
+         console.log("finished hats");
       });
 
       this.play = function(t, freq, vel) {
         var b = ac.createBufferSource();
         var velo = ac.createGain();
         velo.gain.value = vel;
-        b.buffer = outbuffer;
+        b.buffer = this.outbuffer;
         b.start(t);
         b.connect(velo);
         velo.connect(sink);
@@ -339,19 +345,23 @@ tmpsnd = function(ac) {
      osc1.start();
      osc2.start();
    },
-   function clave(sink) {
-     var rel = { value: 0.0 };
-     var osc = ac.createOscillator();
+   function clave(sink, cb) {
+     var oc = new OfflineAudioContext(1, 44100, 44100);
+
+     var rel = { value: 0.03 };
+     var osc = oc.createOscillator();
      osc.type = "triangle";
 
-     var velocity = ac.createGain();
-     var enveloppe = ac.createGain();
+     var velocity = oc.createGain();
+     var enveloppe = oc.createGain();
 
-     var filter = ac.createBiquadFilter();
+     var filter = oc.createBiquadFilter();
      filter.type = "bandpass";
 
      registerParameters(filter.frequency);
      registerParameters(osc.frequency);
+     filter.frequency.value = 5230.3;
+     osc.frequency.value = 2590.3;
      var CLAVE_RELEASE = registerParameters(rel);
 
      osc.frequency.setValueAtTime(0, 0);
@@ -362,25 +372,44 @@ tmpsnd = function(ac) {
      osc.connect(enveloppe);
      enveloppe.connect(velocity);
      velocity.connect(filter);
-     filter.connect(sink);
+     filter.connect(oc.destination);
 
-     this.play = function(t, freq, vel) {
-       velocity.gain.setValueAtTime(vel, t);
-       release(t, enveloppe.gain, 1, 0, getParameter(CLAVE_RELEASE));
-     }
      osc.start();
+
+     velocity.gain.setValueAtTime(1.0, 0);
+     release(0, enveloppe.gain, 1, 0, getParameter(CLAVE_RELEASE));
+
+     var self = this;
+      oc.startRendering().then(function(buf) {
+         self.outbuffer = buf;
+         cb();
+         console.log("finished clave");
+      });
+
+      this.play = function(t, freq, vel) {
+        var b = ac.createBufferSource();
+        var velo = ac.createGain();
+        velo.gain.value = vel;
+        b.buffer = this.outbuffer;
+        b.start(t);
+        b.connect(velo);
+        velo.connect(sink);
+      }
    },
-   function cowbell(sink) {
-     var rel = { value: 0.0 };
-     var osc1 = ac.createOscillator();
-     var osc2 = ac.createOscillator();
+   function cowbell(sink, cb) {
+
+     var oc = new OfflineAudioContext(1, 44100, 44100);
+
+     var rel = { value: 0.03 };
+     var osc1 = oc.createOscillator();
+     var osc2 = oc.createOscillator();
      osc1.type = "square";
      osc2.type = "square";
 
-     var velocity = ac.createGain();
-     var enveloppe = ac.createGain();
+     var velocity = oc.createGain();
+     var enveloppe = oc.createGain();
 
-     var filter = ac.createBiquadFilter();
+     var filter = oc.createBiquadFilter();
      filter.type = "bandpass";
 
      registerParameters(filter.frequency);
@@ -388,9 +417,9 @@ tmpsnd = function(ac) {
      registerParameters(osc2.frequency);
      var cowbell_RELEASE = registerParameters(rel);
 
-     osc1.frequency.setValueAtTime(0, 0);
-     osc2.frequency.setValueAtTime(0, 0);
-     filter.frequency.setValueAtTime(0, 0);
+     osc1.frequency.setValueAtTime(587, 0);
+     osc2.frequency.setValueAtTime(845, 0);
+     filter.frequency.setValueAtTime(5230, 0);
      velocity.gain.setValueAtTime(0, 0);
      enveloppe.gain.setValueAtTime(0, 0);
 
@@ -398,14 +427,30 @@ tmpsnd = function(ac) {
      osc2.connect(enveloppe);
      enveloppe.connect(velocity);
      velocity.connect(filter);
-     filter.connect(sink);
+     filter.connect(oc.destination);
 
-     this.play = function(t, freq, vel) {
-       velocity.gain.setValueAtTime(vel, t);
-       release(t, enveloppe.gain, 1, 0, getParameter(cowbell_RELEASE));
-     }
+     velocity.gain.setValueAtTime(1.0, 0);
+     release(0, enveloppe.gain, 1, 0, getParameter(cowbell_RELEASE));
+
      osc1.start();
      osc2.start();
+
+     var self = this;
+     oc.startRendering().then(function(buf) {
+        self.outbuffer = buf;
+        cb();
+        console.log("finished cowbell");
+     })
+
+     this.play = function(t, freq, vel) {
+       var b = ac.createBufferSource();
+       var velo = ac.createGain();
+       velo.gain.value = vel;
+       b.buffer = this.outbuffer;
+       b.start(t);
+       b.connect(velo);
+       velo.connect(sink);
+     }
    }
  ]
 
@@ -430,7 +475,7 @@ tmpsnd = function(ac) {
  this.comp.connect(ac.destination);
 
  var reverb = ac.createConvolver();
- reverb.buffer = reverbBuffer(2, 5);
+ reverb.buffer = reverbBuffer(2.0, 0.5);
  reverb.connect(master);
 
  var delay = ac.createDelay();
@@ -441,12 +486,18 @@ tmpsnd = function(ac) {
  delayGain.connect(master);
 
  channels.push([]); // 1 indexed
+ var toBake = instruments.length - 1;
  for (var i in instruments) {
    var volume = ac.createGain();
    registerParameters(volume.gain);
    var send_delay = ac.createGain();
    var send_reverb = ac.createGain();
-   channels.push(new instruments[i](volume));
+   channels.push(new instruments[i](volume, function() {
+     if (!--toBake) {
+       console.log("finish baking.");
+       cb();
+     }
+   }));
    volume.connect(master);
    volume.connect(send_delay);
    volume.connect(send_reverb);
@@ -462,10 +513,10 @@ tmpsnd = function(ac) {
  registerParameters(delay.delayTime);
 
  var REVERB_LENGTH = registerParameters(function(newValue) {
-   reverb.buffer = reverbBuffer(newValue, getParameter(REVERB_DECAY));
+   // reverb.buffer = reverbBuffer(newValue, getParameter(REVERB_DECAY));
  });
  var REVERB_DECAY = registerParameters(function(newValue) {
-   reverb.buffer = reverbBuffer(getParameter(REVERB_LENGTH), newValue);
+   // reverb.buffer = reverbBuffer(getParameter(REVERB_LENGTH), newValue);
  });
 
  registerParameters(comp.ratio);
